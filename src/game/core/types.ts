@@ -1,0 +1,21 @@
+export type SurfaceKind = 'stone' | 'wood' | 'grass'
+
+export type FlightState = 'Grounded' | 'Summoning' | 'Mounting' | 'TakingOff' | 'Flying' | 'Landing' | 'Dismounting'
+
+export type AnimState =
+  | 'idle'
+  | 'walk'
+  | 'run'
+  | 'start'
+  | 'stop'
+  | 'turn'
+  | 'jump'
+  | 'fall'
+  | 'land'
+  | 'aim'
+  | 'cast'
+  | 'hit'
+  | 'broomMount'
+  | 'broomRide'
+  | 'fly'
+  | 'broomLand'
