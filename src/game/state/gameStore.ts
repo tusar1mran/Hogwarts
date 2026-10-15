@@ -9,7 +9,7 @@ import { create } from 'zustand'
  */
 export type Phase = 'boot' | 'loading' | 'menu' | 'playing'
 
-export type Overlay = null | 'pause' | 'spellbook' | 'journal' | 'inventory' | 'settings' | 'dialogue'
+export type Overlay = null | 'pause' | 'spellbook' | 'journal' | 'inventory' | 'settings' | 'map' | 'dialogue'
 export type MenuScreen = 'main' | 'settings' | 'credits'
 export type SettingsTab = 'graphics' | 'audio' | 'controls'
 

@@ -4,45 +4,13 @@ import { useGame } from '../../game/state/gameStore'
 import { useProgression } from '../../game/state/progressionStore'
 import { useSettings } from '../../game/state/settings'
 import { SPELLS, findSpell } from '../../game/spells/registry'
-import { activeQuests, currentObjective, objectiveTarget, questStatus, type Progression } from '../../game/quests/questEngine'
+import { activeQuests, currentObjective, objectiveTarget, questStatus } from '../../game/quests/questEngine'
+import { compassObjective } from '../../game/quests/questMap'
 import { keyLabel } from '../../game/input/bindings'
 import { runtime } from '../../game/core/runtime'
 import { wrapAngle } from '../../game/core/math'
-import { FLIGHT_PLATFORM, FLIGHT_RINGS, SECRETS, TRAINING_YARD } from '../../game/world/layout'
-import { NPCS } from '../../game/npc/NPCs'
+import { SECRETS } from '../../game/world/layout'
 import { lockOrPrompt } from '../../game/session'
-
-type Point = [number, number]
-
-/** World position the current objective points to, for the compass. */
-function objectivePosition(p: Progression): { label: string; at: Point } | null {
-  const q = activeQuests(p)[0]
-  if (!q) {
-    if (questStatus(p, 'first-spark') === 'available') return { label: 'Magister Vale', at: [NPCS[0].position[0], NPCS[0].position[2]] }
-    return null
-  }
-  const o = currentObjective(p, q.id)
-  if (!o) return null
-  const npc = (id: string) => NPCS.find((n) => n.id === id)
-  switch (o.kind) {
-    case 'talk': {
-      const n = npc(o.npcId)
-      return n ? { label: 'Talk', at: [n.position[0], n.position[2]] } : null
-    }
-    case 'spellHit':
-      return { label: 'Targets', at: [(TRAINING_YARD.minX + TRAINING_YARD.maxX) / 2, (TRAINING_YARD.minZ + TRAINING_YARD.maxZ) / 2] }
-    case 'collect':
-      return { label: 'Codex', at: [-43, -40] }
-    case 'rings': {
-      const i = FLIGHT_RINGS.findIndex((_, idx) => !p.ringsCollected.includes(idx))
-      return i >= 0 ? { label: 'Ring', at: [FLIGHT_RINGS[i][0], FLIGHT_RINGS[i][2]] } : null
-    }
-    case 'reach':
-      return { label: 'Platform', at: FLIGHT_PLATFORM.center }
-    default:
-      return null
-  }
-}
 
 const PX_PER_RAD = 115
 
@@ -59,7 +27,7 @@ function Compass() {
     { label: 'W', bearing: -Math.PI / 2, cls: 'cardinal' },
     { label: 'Castle', bearing: bearingTo(0, -26), cls: '' },
   ]
-  const obj = objectivePosition(progression)
+  const obj = compassObjective(progression)
   if (obj) marks.push({ label: `◆ ${obj.label}`, bearing: bearingTo(obj.at[0], obj.at[1]), cls: 'target' })
   if (hasLens) {
     for (const s of SECRETS) if (!progression.secretsFound.includes(s.id)) marks.push({ label: '✦', bearing: bearingTo(s.position[0], s.position[2]), cls: 'secret' })

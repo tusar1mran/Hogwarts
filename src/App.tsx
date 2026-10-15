@@ -28,11 +28,11 @@ function useMenuKeys() {
         return
       }
       const b = useSettings.getState().controls.bindings
-      const map = { spellbook: b.spellbook, journal: b.journal, inventory: b.inventory } as const
-      for (const [overlay, codes] of Object.entries(map) as Array<[keyof typeof map, string[]]>) {
+      const toggles = { spellbook: b.spellbook, journal: b.journal, inventory: b.inventory, map: b.map } as const
+      for (const [overlay, codes] of Object.entries(toggles) as Array<[keyof typeof toggles, string[]]>) {
         if (!codes.includes(e.code)) continue
         if (g.overlay === overlay) resumeGame()
-        else if (g.overlay === null || g.overlay === 'pause' || g.overlay === 'spellbook' || g.overlay === 'journal' || g.overlay === 'inventory') g.openOverlay(overlay)
+        else if (g.overlay === null || g.overlay === 'pause' || g.overlay === 'spellbook' || g.overlay === 'journal' || g.overlay === 'inventory' || g.overlay === 'map') g.openOverlay(overlay)
       }
     }
     window.addEventListener('keydown', onKey)

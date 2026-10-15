@@ -33,6 +33,10 @@ interface HudStore {
   flightSpeed: number
   altitude: number
   heading: number
+  /** Player world X/Z and facing yaw, surfaced at ~10 Hz for the world map overlay. */
+  playerX: number
+  playerZ: number
+  playerFacing: number
   areaName: string
   prompt: InteractionPrompt | null
   ringsCollected: number
@@ -62,6 +66,9 @@ export const useHud = create<HudStore>((set) => ({
   flightSpeed: 0,
   altitude: 0,
   heading: 0,
+  playerX: 0,
+  playerZ: 0,
+  playerFacing: 0,
   areaName: '',
   prompt: null,
   ringsCollected: 0,

@@ -15,7 +15,8 @@ import { questStatus } from '../quests/questEngine'
 import { damagePlayer } from '../player/playerActions'
 import { spellState } from '../spells/SpellRuntime'
 import { terrainHeight } from './terrain/heightfield'
-import { LIBRARY_BALCONY_Y } from './layout'
+import { BROOM_PICKUPS, CODEX_POSITION, FLIGHT_PLATFORM, LIBRARY_BALCONY_Y } from './layout'
+import { BroomModel } from './BroomModel'
 import { timeUniform } from './environment/Atmosphere'
 
 type V3 = [number, number, number]
@@ -338,7 +339,7 @@ function Codex() {
   const ref = useRef<Group>(null)
   const artifacts = useProgression((s) => s.progression.artifacts)
   const collected = artifacts.includes('astral-codex')
-  const position = useMemo(() => new Vector3(-43.3, LIBRARY_BALCONY_Y + 1.05, -40.2), [])
+  const position = useMemo(() => new Vector3(...CODEX_POSITION), [])
   const bookMat = useMemo(() => new MeshStandardMaterial({ color: '#1b2350', emissive: new Color('#3a5cff'), emissiveIntensity: 0.6, roughness: 0.5 }), [])
   useEffect(() => () => bookMat.dispose(), [bookMat])
 
@@ -448,6 +449,42 @@ function ShrineEmber() {
   return null
 }
 
+/** A broom resting in the world. Taking it collects the broom and unlocks flight (FEAT-002). */
+function BroomPickup({ id, name, position }: { id: string; name: string; position: V3 }) {
+  const ref = useRef<Group>(null)
+  const collected = useProgression((s) => s.progression.broomsCollected.includes(id))
+  const pos = useMemo(() => {
+    const groundY = id === 'broom-platform' ? FLIGHT_PLATFORM.height : terrainHeight(position[0], position[2])
+    return new Vector3(position[0], groundY + 0.6, position[2])
+  }, [id, position])
+
+  useEffect(() => {
+    if (collected) return
+    return registerInteractable({
+      id,
+      position: pos,
+      radius: 2.5,
+      verb: 'Take',
+      label: name,
+      onInteract: () => useProgression.getState().collectBroom(id),
+    })
+  }, [collected, id, name, pos])
+
+  useFrame(() => {
+    const g = ref.current
+    if (!g) return
+    g.rotation.y += 0.01
+    g.position.y = pos.y + Math.sin(runtime.time * 1.8 + pos.x) * 0.08
+  })
+
+  if (collected) return null
+  return (
+    <group ref={ref} position={pos} rotation-z={Math.PI / 2} scale={0.9}>
+      <BroomModel />
+    </group>
+  )
+}
+
 export function WorldItems() {
   return (
     <group>
@@ -460,6 +497,9 @@ export function WorldItems() {
       <Sentinel />
       <Codex />
       <ShrineEmber />
+      {BROOM_PICKUPS.map((b) => (
+        <BroomPickup key={b.id} id={b.id} name={b.name} position={b.position} />
+      ))}
       {RUNES.map((r) => (
         <Rune key={r.id} {...r} />
       ))}

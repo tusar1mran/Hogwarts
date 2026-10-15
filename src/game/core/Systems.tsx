@@ -157,6 +157,9 @@ export function HudSync() {
       flightSpeed: Math.round(f.speed * 3.6),
       altitude: Math.round(f.altitude),
       heading: runtime.camera.yaw,
+      playerX: p.position.x,
+      playerZ: p.position.z,
+      playerFacing: p.facing,
     })
   })
   useEffect(() => {

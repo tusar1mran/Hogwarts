@@ -1,18 +1,6 @@
 import { Component, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useFrame } from '@react-three/fiber'
-import {
-  AdditiveBlending,
-  Color,
-  ConeGeometry,
-  CylinderGeometry,
-  Group,
-  MeshBasicMaterial,
-  MeshStandardMaterial,
-  Quaternion,
-  SphereGeometry,
-  TorusGeometry,
-  Vector3,
-} from 'three'
+import { Group, Quaternion, Vector3 } from 'three'
 import { runtime } from '../core/runtime'
 import { clamp, damp, dampFactor } from '../core/math'
 import type { AnimState } from '../core/types'
@@ -23,6 +11,7 @@ import { CharacterAvatar, characterLibraryAvailable, type AvatarController } fro
 import { STUDENT_OUTFIT } from './characterModel'
 import { FLIGHT_TIMINGS, isAirborneFlightState, isBroomVisible } from '../flight/flightMachine'
 import { clampWorldAimPitch, wandAimRotation } from './wandAim'
+import { BroomModel } from '../world/BroomModel'
 
 export const PLAYER_APPEARANCE: RigAppearance = {
   robe: '#1d2238',
@@ -39,43 +28,6 @@ const ONE_SHOT: AnimState[] = ['jump', 'land', 'cast', 'hit', 'broomMount', 'bro
 /* ------------------------------------------------------------------------------------------ */
 /* Broom                                                                                       */
 /* ------------------------------------------------------------------------------------------ */
-
-function BroomModel() {
-  const parts = useMemo(() => {
-    const handle = new CylinderGeometry(0.028, 0.035, 2.0, 8)
-    handle.rotateX(Math.PI / 2)
-    const bristles = new ConeGeometry(0.2, 0.75, 12, 1, true)
-    bristles.rotateX(-Math.PI / 2)
-    bristles.translate(0, 0, 1.15)
-    const band = new TorusGeometry(0.06, 0.015, 6, 12)
-    const glow = new SphereGeometry(0.06, 8, 6)
-    return {
-      handle,
-      bristles,
-      band,
-      glow,
-      wood: new MeshStandardMaterial({ color: '#5a3a22', roughness: 0.45 }),
-      straw: new MeshStandardMaterial({ color: '#b08a4a', roughness: 0.9, side: 2 }),
-      brass: new MeshStandardMaterial({ color: '#c9a050', metalness: 0.9, roughness: 0.3 }),
-      glowMat: new MeshBasicMaterial({ color: new Color('#9fd8ff'), transparent: true, opacity: 0.9, blending: AdditiveBlending, toneMapped: false }),
-    }
-  }, [])
-  useEffect(
-    () => () => {
-      Object.values(parts).forEach((p) => (p as { dispose: () => void }).dispose())
-    },
-    [parts],
-  )
-  return (
-    <group>
-      <mesh geometry={parts.handle} material={parts.wood} castShadow />
-      <mesh geometry={parts.bristles} material={parts.straw} castShadow />
-      <mesh geometry={parts.band} material={parts.brass} position={[0, 0, 0.78]} />
-      <mesh geometry={parts.band} material={parts.brass} position={[0, 0, 0.84]} />
-      <mesh geometry={parts.glow} material={parts.glowMat} position={[0, 0, -1.02]} />
-    </group>
-  )
-}
 
 /** Broom that spirals down when summoned, slides under the rider, and banks with the flight. */
 function Broom() {

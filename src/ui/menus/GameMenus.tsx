@@ -10,6 +10,7 @@ import { SECRETS } from '../../game/world/layout'
 import { returnToMenu, resumeGame } from '../../game/session'
 import { events } from '../../game/core/events'
 import { SettingsPanel } from './SettingsPanel'
+import { WorldMap } from './WorldMap'
 
 const click = (fn: () => void) => () => {
   events.emit({ type: 'ui:click' })
@@ -234,6 +235,7 @@ export function GameOverlays() {
       {overlay === 'spellbook' && <Spellbook />}
       {overlay === 'journal' && <QuestJournal />}
       {overlay === 'inventory' && <Inventory />}
+      {overlay === 'map' && <WorldMap />}
       {overlay === 'settings' && <SettingsPanel onClose={() => open('pause')} />}
     </div>
   )

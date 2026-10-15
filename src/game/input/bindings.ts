@@ -24,6 +24,7 @@ export type Action =
   | 'spellbook'
   | 'journal'
   | 'inventory'
+  | 'map'
   | 'toggleDebug'
 
 export type Bindings = Record<Action, string[]>
@@ -58,6 +59,7 @@ export const ACTION_META: Record<Action, ActionMeta> = {
   spellbook: { label: 'Open spellbook', context: 'any', group: 'Interface' },
   journal: { label: 'Open quest journal', context: 'any', group: 'Interface' },
   inventory: { label: 'Open artefact collection', context: 'any', group: 'Interface' },
+  map: { label: 'Open world map', context: 'any', group: 'Interface' },
   toggleDebug: { label: 'Toggle debug overlay', context: 'any', group: 'Interface' },
 }
 
@@ -87,6 +89,7 @@ export const DEFAULT_BINDINGS: Bindings = {
   spellbook: ['KeyB'],
   journal: ['KeyJ'],
   inventory: ['KeyI'],
+  map: ['KeyM'],
   toggleDebug: ['F3'],
 }
 
