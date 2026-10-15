@@ -1,0 +1,8 @@
+{
+  "verdict": "APPROVED",
+  "summary": "All three features (wand-aimed casting, broom-gated flight with v1/v2/v3 save migration, and the world map overlay) are implemented faithfully to the approved design, and the full gate (typecheck, 106 tests, lint, build) passes clean. No HIGH or MEDIUM findings.",
+  "findings": [
+    { "severity": "NIT", "where": "src/game/state/progressionStore.ts:collectBroom", "detail": "Notification body reads 'Press ${key} to summon your broom.' vs the design's 'Press ${key} to summon it.' — a harmless wording variant; the live toggleBroom key is correctly resolved via keyLabel so it survives rebinds. No change required." },
+    { "severity": "NIT", "where": "src/ui/menus/WorldMap.tsx:MAP_VIEW", "detail": "MAP_VIEW = WORLD_HALF_SIZE (580) per the design, so the castle grounds occupy a small central region of the map. This matches the spec literally; a future tweak could zoom to the castle extent, but it is out of scope and not a defect." }
+  ]
+}

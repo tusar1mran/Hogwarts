@@ -1,0 +1,7 @@
+{
+  "task_id": "task-wand-broom-map",
+  "task_description": "Implement three connected gameplay features in eldoria-academy by building on existing systems: (F1) wand-aimed spell casting where the held wand visibly orients along the aim direction while the projectile keeps spawning from the wand tip; (F2) gate broomstick summoning on a new hasBroom progression flag persisted in the versioned save; (F3) a rebindable World Map overlay (default M) that derives landmark geometry from layout.ts and plots quest and broom-pickup markers, plus in-world broom pickups whose collection sets hasBroom. Grounded in the APPROVED design.md and design-review.md.",
+  "status": "completed",
+  "feature_order": ["FEAT-001", "FEAT-002", "FEAT-003"],
+  "blocked_reason": null
+}

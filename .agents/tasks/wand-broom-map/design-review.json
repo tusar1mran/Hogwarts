@@ -1,0 +1,39 @@
+{
+  "verdict": "APPROVED",
+  "findings": [
+    {
+      "id": 1,
+      "severity": "NIT",
+      "title": "World-space pitch clamp is inert for live ground aim; justification overstates it",
+      "where": "design.md §5 step 3, §5 Edge cases, AC-1",
+      "problem": "The clamp runs on runtime.aim.direction, which in ground state equals the camera forward whose pitch CameraRig already clamps to CAMERA_LIMITS.groundPitch. So clampWorldAimPitch is a no-op on real gameplay input and only affects synthetic out-of-range vectors (the AC-1 unit test). The design presents it as a meaningful 'stays in a plausible range' guard.",
+      "fix": "Keep the helper (cheap and makes it independently testable) but reword the prose to note it is defensive: the camera already constrains ground pitch to the same limits, so it is a no-op for live aim. No code change required."
+    },
+    {
+      "id": 2,
+      "severity": "NIT",
+      "title": "'no existing event uses a bare id' is factually wrong",
+      "where": "design.md §6, §8, §13.1 finding 5",
+      "problem": "events.ts defines { type: 'interact'; id: string } — a bare id. The rationale for naming the field broomId is inaccurate, though the chosen name is still fine.",
+      "fix": "Reword to 'the dominant convention is <noun>Id (itemId/questId/npcId/locationId); broomId follows it.' Keep broomId."
+    },
+    {
+      "id": 3,
+      "severity": "NIT",
+      "title": "questMap maps every collect objective to one hard-coded codex position",
+      "where": "design.md §7.4 (collect -> CODEX_POSITION)",
+      "problem": "The resolver encodes 'collect == codex' for all items. Correct today (only one collect objective, astral-codex, verified) but silently wrong if a second collectible quest is added. New quests are out of scope, so not a blocker.",
+      "fix": "Add a comment at the collect case stating the single-collect-objective assumption, or key off o.itemId with a small item->position map currently containing just the codex."
+    },
+    {
+      "id": 4,
+      "severity": "NIT",
+      "title": "Files-touched list omits/mis-states some real paths",
+      "where": "design.md §7.5 and §12",
+      "problem": "HUD.tsx actually lives at src/ui/hud/HUD.tsx; several modified files are listed without their directory. Not misleading (symbols are unambiguous) but the file list is meant to be a precise checklist.",
+      "fix": "Qualify the paths: src/ui/hud/HUD.tsx, src/game/core/Systems.tsx, src/ui/menus/GameMenus.tsx, etc."
+    }
+  ],
+  "counts": { "HIGH": 0, "MEDIUM": 0, "NIT": 4 },
+  "reviewDoc": "c:\\Projects\\Hogwarts\\.worktrees\\wand-broom-map\\.agents\\tasks\\wand-broom-map/design-review.md"
+}
