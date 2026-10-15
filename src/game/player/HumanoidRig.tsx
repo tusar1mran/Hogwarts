@@ -347,6 +347,8 @@ export class PoseBlender {
 export interface HumanoidHandle {
   joints: Record<Joint, Object3D>
   wandTip: Object3D | null
+  /** The wand group under handR (holds the wand mesh + wandTip empty); settable so the aim correction can orient it. */
+  wandRoot: Object3D | null
   root: Group
 }
 
@@ -355,6 +357,7 @@ export const HumanoidRig = forwardRef<HumanoidHandle, { appearance: RigAppearanc
   const root = useRef<Group>(null)
   const jointRefs = useRef<Partial<Record<Joint, Object3D>>>({})
   const wandTip = useRef<Object3D>(null)
+  const wandRoot = useRef<Object3D>(null)
 
   const mats = useMemo(
     () => ({
@@ -424,6 +427,7 @@ export const HumanoidRig = forwardRef<HumanoidHandle, { appearance: RigAppearanc
     () => ({
       joints: jointRefs.current as Record<Joint, Object3D>,
       wandTip: wandTip.current,
+      wandRoot: wandRoot.current,
       root: root.current as Group,
     }),
     [],
@@ -477,7 +481,7 @@ export const HumanoidRig = forwardRef<HumanoidHandle, { appearance: RigAppearanc
                       <group ref={j('handR')} position={[0, -0.32, 0]}>
                         <mesh geometry={geo.hand} material={mats.skin} />
                         {appearance.wand !== false && (
-                          <group rotation-x={0.25} position={[0, -0.02, -0.02]}>
+                          <group ref={wandRoot} rotation-x={0.25} position={[0, -0.02, -0.02]}>
                             <mesh geometry={geo.wand} material={mats.wand} />
                             <mesh geometry={geo.wandTip} material={mats.wandTip} position={[0, -0.34, 0]} />
                             <object3D ref={wandTip} position={[0, -0.36, 0]} />

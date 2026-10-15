@@ -8,19 +8,21 @@ import {
   Group,
   MeshBasicMaterial,
   MeshStandardMaterial,
+  Quaternion,
   SphereGeometry,
   TorusGeometry,
   Vector3,
 } from 'three'
 import { runtime } from '../core/runtime'
-import { clamp, damp } from '../core/math'
+import { clamp, damp, dampFactor } from '../core/math'
 import type { AnimState } from '../core/types'
 import { HumanoidRig, PoseBlender, type HumanoidHandle, type RigAppearance } from './HumanoidRig'
 import { resolveClip } from './animationMachine'
 import { CLIP_MAP } from '../assets/manifest'
 import { CharacterAvatar, characterLibraryAvailable, type AvatarController } from './CharacterAvatar'
 import { STUDENT_OUTFIT } from './characterModel'
-import { FLIGHT_TIMINGS, isBroomVisible } from '../flight/flightMachine'
+import { FLIGHT_TIMINGS, isAirborneFlightState, isBroomVisible } from '../flight/flightMachine'
+import { clampWorldAimPitch, wandAimRotation } from './wandAim'
 
 export const PLAYER_APPEARANCE: RigAppearance = {
   robe: '#1d2238',
@@ -120,12 +122,15 @@ function Broom() {
 /* ------------------------------------------------------------------------------------------ */
 
 const _tip = new Vector3()
+const _parentQuat = new Quaternion()
+const _localAim = new Vector3()
+const _aimRot = new Quaternion()
 
 function ProceduralAvatar() {
   const root = useRef<Group>(null)
   const rig = useRef<HumanoidHandle>(null)
   const blender = useMemo(() => new PoseBlender(), [])
-  const anim = useRef({ phase: 0, lastState: 'idle' as AnimState, since: 0, t: 0, flightRoll: 0, flightPitch: 0 })
+  const anim = useRef({ phase: 0, lastState: 'idle' as AnimState, since: 0, t: 0, flightRoll: 0, flightPitch: 0, aimK: 0 })
 
   useFrame((_, rawDt) => {
     const g = root.current
@@ -159,6 +164,21 @@ function ProceduralAvatar() {
     g.position.copy(p.position)
     if (flightPose) g.position.y += 0.05
     g.rotation.set(a.flightPitch, p.facing, a.flightRoll, 'YXZ')
+
+    // Point the wand along the aim direction while aiming or during the cast flick, but only
+    // on the ground so it never fights the broom riding pose. Done after blender.apply (which
+    // sets the hand/wand group's base rotation) and before sampling the tip below.
+    const casting = p.castStartedAt >= 0 && runtime.time - p.castStartedAt < 0.4
+    const wantAim = (p.aiming || casting) && !flightPose && !isAirborneFlightState(runtime.flight.state)
+    a.aimK = a.aimK + ((wantAim ? 1 : 0) - a.aimK) * dampFactor(12, dt)
+    if (a.aimK > 0.001 && r.wandRoot && r.wandRoot.parent) {
+      const worldAim = clampWorldAimPitch(runtime.aim.direction)
+      // Bring the clamped world aim into the wand group's parent space, then build the rotation.
+      r.wandRoot.parent.getWorldQuaternion(_parentQuat).invert()
+      _localAim.copy(worldAim).applyQuaternion(_parentQuat)
+      _aimRot.copy(wandAimRotation(_localAim))
+      r.wandRoot.quaternion.slerp(_aimRot, a.aimK)
+    }
 
     if (r.wandTip) {
       r.wandTip.getWorldPosition(_tip)
@@ -232,6 +252,8 @@ function RealisticAvatar() {
     a.seatOffset = damp(a.seatOffset, target, 8, dt)
     s.position.y = a.seatOffset
 
+    // No wand-aim correction here: it applies only when a settable wand group is exposed, and
+    // the procedural path (characterLibraryAvailable() is false) carries the feature.
     if (c.wandTip) c.wandTip.getWorldPosition(runtime.wandTip)
     else runtime.wandTip.set(p.position.x, p.position.y + 1.4, p.position.z)
   })
