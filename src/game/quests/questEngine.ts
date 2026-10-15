@@ -92,38 +92,59 @@ function matches(o: ObjectiveDef, e: QuestEvent): boolean {
     case 'defeat':
       return e.type === 'defeat' && e.targetKind === o.targetKind
     case 'tally':
-      // Progress comes from syncTallies, never from individual events.
+    case 'discover':
+      // Progress comes from syncDerived, never from individual events.
       return false
   }
 }
 
 /**
- * Bring every active "tally" objective in line with the runes/secrets already found. Finds made
- * before the quest was accepted count, so a quest can never be left unwinnable.
+ * How far the player already is towards an objective that is judged from Progression state
+ * rather than events, or null for event-driven objectives.
  */
-function syncTallies(p: Progression): QuestUpdate {
+function derivedCount(p: Progression, o: ObjectiveDef): number | null {
+  switch (o.kind) {
+    case 'tally':
+      return tallyCount(p, o.source)
+    case 'discover':
+      return p.secretsFound.includes(o.secretId) ? 1 : 0
+    case 'collect':
+      // Items picked up before the quest asked for them still count.
+      return p.artifacts.includes(o.itemId) ? 1 : 0
+    default:
+      return null
+  }
+}
+
+/**
+ * Bring every active state-derived objective (tally, discover, collect) in line with what the
+ * player has already found. Finds made before the quest was accepted count, so a quest can never
+ * be left unwinnable. Several such objectives in a row can complete in one pass.
+ */
+function syncDerived(p: Progression): QuestUpdate {
   let progression = p
   const advanced: QuestUpdate['advanced'] = []
   const completed: QuestDef[] = []
-  for (const [questId, qp] of Object.entries(p.quests)) {
-    if (qp.status !== 'active') continue
+  for (const questId of Object.keys(p.quests)) {
     const def = getQuest(questId)
-    const objective = def?.objectives[qp.stage]
-    if (!def || objective?.kind !== 'tally') continue
-    const have = tallyCount(p, objective.source)
-    let next: QuestProgress
-    if (have >= objective.count) {
-      const stage = qp.stage + 1
-      const done = stage >= def.objectives.length
-      next = { status: done ? 'completed' : 'active', stage, count: 0 }
-      advanced.push({ questId, objective })
-      if (done) completed.push(def)
-    } else if (have !== qp.count) {
-      next = { ...qp, count: have }
-    } else {
-      continue
+    if (!def) continue
+    for (;;) {
+      const qp = progression.quests[questId]
+      if (qp.status !== 'active') break
+      const objective = def.objectives[qp.stage]
+      const have = objective ? derivedCount(progression, objective) : null
+      if (!objective || have === null) break
+      if (have >= objectiveTarget(objective)) {
+        const stage = qp.stage + 1
+        const done = stage >= def.objectives.length
+        progression = { ...progression, quests: { ...progression.quests, [questId]: { status: done ? 'completed' : 'active', stage, count: 0 } } }
+        advanced.push({ questId, objective })
+        if (done) completed.push(def)
+        continue
+      }
+      if (have !== qp.count) progression = { ...progression, quests: { ...progression.quests, [questId]: { ...qp, count: have } } }
+      break
     }
-    progression = { ...progression, quests: { ...progression.quests, [questId]: next } }
   }
   return { progression, advanced, completed }
 }
@@ -163,7 +184,7 @@ export function applyQuestEvent(p: Progression, e: QuestEvent): QuestUpdate {
     progression = { ...progression, quests: { ...progression.quests, [questId]: next } }
   }
 
-  const tallies = syncTallies(progression)
+  const tallies = syncDerived(progression)
   progression = tallies.progression
   advanced.push(...tallies.advanced)
   completed.push(...tallies.completed)
@@ -191,7 +212,7 @@ export function startQuest(p: Progression, questId: string): QuestUpdate {
   const first = def.objectives[0]
   if (first?.kind === 'talk' && first.npcId === def.giver) {
     // Only advance this quest, not other quests that might also wait on talking to the giver.
-    // applyQuestEvent also syncs tallies, so runes/secrets found earlier count straight away.
+    // applyQuestEvent also syncs derived objectives, so earlier finds count straight away.
     const only = applyQuestEvent({ ...reset, quests: { [questId]: reset.quests[questId] } }, { type: 'talk', npcId: def.giver })
     return {
       progression: { ...only.progression, quests: { ...reset.quests, ...only.progression.quests } },

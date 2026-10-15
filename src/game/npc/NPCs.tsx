@@ -71,6 +71,17 @@ export const NPCS: NpcDef[] = [
     outfit: { ...STUDENT_OUTFIT, robe: '#4a2a18', lining: '#c08a3a', jumper: '#5a4632', trousers: '#3a2e24', scarf: ['#c08a3a', '#4a2a18'], hem: 0.55, hood: false, wand: false },
     behaviour: 'idle',
   },
+  {
+    // Beside the road just south of the Pilgrim Bridge, facing the spawn so new players meet him.
+    id: 'groundskeeper',
+    position: [7, 0, 120],
+    facing: 2.4,
+    appearance: { robe: '#3a3a22', trim: '#8a7a4a', skin: '#b98262', hair: '#5a4a3a', beard: true, boots: '#2a2014', hood: false, scale: 1.08, wand: false },
+    body: 'male',
+    hair: ['long', 'beard'],
+    outfit: { ...STUDENT_OUTFIT, robe: '#3a3a22', lining: '#6a6a3a', jumper: '#4a3a2a', trousers: '#2e2a20', scarf: ['#6a6a3a', '#3a3a22'], hem: 0.35, hood: false, wand: false },
+    behaviour: 'idle',
+  },
 ]
 
 const _toPlayer = new Vector3()

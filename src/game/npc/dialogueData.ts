@@ -230,6 +230,102 @@ export const DIALOGUES: Record<string, NpcDialogue> = {
     },
   },
 
+  groundskeeper: {
+    npcId: 'groundskeeper',
+    name: 'Hollis Thorne',
+    title: 'Groundskeeper',
+    entry: (p) => {
+      const chain: Array<[string, string]> = [
+        ['drowned-chapel', 'chapel'],
+        ['glimmerwood-embers', 'ember'],
+        ['beacons-of-eldoria', 'beacon'],
+      ]
+      for (const [questId, prefix] of chain) {
+        const node = followUpEntry(p, questId, 'groundskeeper', prefix)
+        if (node) return node
+      }
+      if (questStatus(p, 'beacons-of-eldoria') === 'completed') return 'done'
+      if (questStatus(p, 'first-spark') !== 'completed') return 'locked'
+      if (questStatus(p, 'glimmerwood-embers') === 'completed') return 'needFlight'
+      return 'hello'
+    },
+    nodes: {
+      locked: {
+        text: 'New, are you? Hollis Thorne, I keep the grounds. Go and see Magister Vale at the Practice Grounds first. When you can throw a spark without losing an eyebrow, come back. I have work for you.',
+        next: null,
+      },
+      hello: {
+        text: 'Mind the bridge, it sways in the wind. Come back when you have a moment.',
+        next: null,
+      },
+      chapelIntro: {
+        text: 'Three nights running I have seen lights in the Drowned Chapel, out on the cliffs west of the castle above Mirrormere. Nobody has prayed there in a hundred years. My knees will not take the cliff path. Yours will.',
+        choices: [
+          { text: 'What kind of lights?', next: 'chapelLore' },
+          { text: 'Accept: The Drowned Chapel', next: 'chapelAccepted', action: { type: 'acceptQuest', questId: 'drowned-chapel' } },
+          { text: 'Not tonight.', next: null },
+        ],
+      },
+      chapelLore: {
+        text: 'Green-gold, like a forest fire seen through water. Could be nothing. Could be students. Could be something that should not be there at all.',
+        choices: [
+          { text: 'Accept: The Drowned Chapel', next: 'chapelAccepted', action: { type: 'acceptQuest', questId: 'drowned-chapel' } },
+          { text: 'I will think about it.', next: null },
+        ],
+      },
+      chapelAccepted: { text: 'Head west past the Skyward Platform and follow the lake shore up the cliffs. Press M if you lose your way.', next: null },
+      chapelProgress: { text: 'The chapel sits on the cliffs above Mirrormere, west of here. Check your map with M.', next: null },
+      chapelTurnin: {
+        text: 'Ash on the altar and the smell of pine resin? That is shrine-fire, carried out of the Glimmerwood. Take this old bell from the chapel; it has been ringing in my shed all week.',
+        onEnter: { type: 'turnIn' },
+        next: null,
+      },
+      emberIntro: {
+        text: 'If that was shrine-fire, the shrine in the Glimmerwood is still burning. Bring me a living ember from it, carefully, and I can prove it.',
+        choices: [
+          { text: 'Accept: Embers of the Glimmerwood', next: 'emberAccepted', action: { type: 'acceptQuest', questId: 'glimmerwood-embers' } },
+          { text: 'Later.', next: null },
+        ],
+      },
+      emberAccepted: { text: 'The Glimmerwood is east of the castle; the shrine is deep inside where the trees glow. Do not let the ember touch your robes.', next: null },
+      emberProgress: { text: 'The shrine is deep in the Glimmerwood, east of the castle. Press E beside the ember to take it.', next: null },
+      emberTurnin: {
+        text: 'Still warm, still alive. I will set it in silver for you. The Ember Heart, my grandmother called these. It will steady your reserves.',
+        onEnter: { type: 'turnIn' },
+        next: null,
+      },
+      needFlight: {
+        text: 'The ember could relight the old beacon on the Astronomer’s Perch, but nobody walks up there. Get your flying licence from Captain Halloway on the Skyward Platform, then come back.',
+        next: null,
+      },
+      beaconIntro: {
+        text: 'Licensed, are you? Then take a spark of that ember up to the Astronomer’s Perch, above the tallest tower, and relight the beacon. Land on the Skyward Platform after, so Halloway sees you come in safe.',
+        choices: [
+          { text: 'Accept: Beacons of Eldoria', next: 'beaconAccepted', action: { type: 'acceptQuest', questId: 'beacons-of-eldoria' } },
+          { text: 'Not yet.', next: null },
+        ],
+      },
+      beaconAccepted: { text: 'Summon your broom with F, climb above the tallest flat-topped tower and hover over the top until the beacon catches.', next: null },
+      beaconProgress: {
+        text: (p) => {
+          const o = currentObjective(p, 'beacons-of-eldoria')
+          if (o?.kind === 'reach') return 'The beacon is lit. Now land on the Skyward Platform.'
+          return 'The Perch is above the tallest flat-topped tower. You will need your broom.'
+        },
+        next: null,
+      },
+      beaconTurnin: {
+        text: 'I saw it from here, lit up like a second moon. Take this lantern; it was lit from your beacon. Eldoria owes you a good deal, young one.',
+        onEnter: { type: 'turnIn' },
+        next: null,
+      },
+      done: {
+        text: 'The beacon burns, the chapel is quiet and the bridge still sways. A good season.',
+        next: null,
+      },
+    },
+  },
+
   'flight-instructor': {
     npcId: 'flight-instructor',
     name: 'Captain Bryn Halloway',

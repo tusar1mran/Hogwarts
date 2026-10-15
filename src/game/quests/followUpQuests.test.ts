@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { applyQuestEvent, canAcceptQuest, createProgression, currentObjective, ringCourseInUse, startQuest, type Progression, type QuestEvent } from './questEngine'
 import { artifactBonuses, describeBonus, getQuest, QUESTS } from './questData'
-import { questMarkers } from './questMap'
+import { compassObjective, questEntries, questMarkers } from './questMap'
 import { FLIGHT_RINGS, SENTINEL_POSITION } from '../world/layout'
 import { DIALOGUES } from '../npc/dialogueData'
 import { createCaster, withBonuses } from '../spells/spellSystem'
@@ -86,5 +86,69 @@ describe('artefact rewards', () => {
     expect(boosted).toMatchObject({ maxMana: 130, regen: 19, mana: 70 })
     expect(withBonuses(boosted, { maxMana: 30, regen: 5 })).toBe(boosted)
     expect(withBonuses({ ...boosted, mana: 130 }, { maxMana: 0, regen: 0 }).mana).toBe(100)
+  })
+})
+
+describe('groundskeeper chain', () => {
+  const base = () => completed(createProgression(), 'first-spark')
+
+  it('The Drowned Chapel: finding the chapel then reporting back grants the Chapel Bell', () => {
+    let p = startQuest(base(), 'drowned-chapel').progression
+    expect(currentObjective(p, 'drowned-chapel')?.id).toBe('find-chapel')
+    p = apply({ ...p, secretsFound: ['mirrormere-ruin'] }, { type: 'secret', secretId: 'mirrormere-ruin' })
+    expect(currentObjective(p, 'drowned-chapel')?.id).toBe('return-groundskeeper')
+    p = apply(p, { type: 'talk', npcId: 'groundskeeper' })
+    expect(p.artifacts).toContain('chapel-bell')
+  })
+
+  it('Embers of the Glimmerwood: an ember taken before accepting still counts', () => {
+    const before = { ...completed(base(), 'drowned-chapel'), artifacts: ['shrine-ember'] }
+    const p = startQuest(before, 'glimmerwood-embers').progression
+    expect(currentObjective(p, 'glimmerwood-embers')?.id).toBe('return-groundskeeper')
+  })
+
+  it('Beacons of Eldoria: needs the flying licence, then perch, landing and report in order', () => {
+    const ready = completed(base(), 'drowned-chapel', 'glimmerwood-embers')
+    expect(canAcceptQuest(ready, 'beacons-of-eldoria')).toBe(false)
+    let p = startQuest(completed(ready, 'flight-initiation'), 'beacons-of-eldoria').progression
+    p = apply(p, { type: 'reach', locationId: 'flight-platform' })
+    expect(currentObjective(p, 'beacons-of-eldoria')?.id).toBe('reach-perch')
+    p = apply({ ...p, secretsFound: ['astronomy-summit'] }, { type: 'secret', secretId: 'astronomy-summit' }, { type: 'reach', locationId: 'flight-platform' }, { type: 'talk', npcId: 'groundskeeper' })
+    expect(p.quests['beacons-of-eldoria'].status).toBe('completed')
+    expect(p.artifacts).toContain('beacon-lantern')
+  })
+
+  it('a run of already-satisfied objectives completes in one step', () => {
+    const before = { ...completed(base(), 'drowned-chapel'), artifacts: ['shrine-ember'] }
+    const { advanced } = startQuest(before, 'glimmerwood-embers')
+    expect(advanced.map((a) => a.objective.id)).toEqual(['talk-groundskeeper', 'take-ember'])
+  })
+})
+
+describe('mission list and tracking', () => {
+  it('lists active missions before new ones and leaves out locked and finished ones', () => {
+    let p = completed(createProgression(), 'first-spark')
+    p = startQuest(p, 'drowned-chapel').progression
+    const entries = questEntries(p)
+    expect(entries[0]).toMatchObject({ id: 'drowned-chapel', status: 'active', label: 'Drowned Chapel' })
+    const ids = entries.map((e) => e.id)
+    expect(ids).toContain('warden-of-the-yard')
+    expect(ids).not.toContain('first-spark')
+    expect(ids).not.toContain('glimmerwood-embers')
+  })
+
+  it('shows counted progress', () => {
+    const p = startQuest({ ...completed(createProgression(), 'lost-archive'), secretsFound: ['library-nook'] }, 'secrets-of-eldoria').progression
+    expect(questEntries(p).find((e) => e.id === 'secrets-of-eldoria')?.progress).toBe('1/3')
+  })
+
+  it('points the compass at the tracked mission when it is active', () => {
+    let p = completed(createProgression(), 'first-spark')
+    p = startQuest(p, 'warden-of-the-yard').progression
+    p = startQuest(p, 'drowned-chapel').progression
+    expect(compassObjective(p, null)?.label).toBe('Sentinel')
+    expect(compassObjective(p, 'drowned-chapel')?.label).toBe('Drowned Chapel')
+    // A tracked quest that is not active falls back to the first active one.
+    expect(compassObjective(p, 'lost-archive')?.label).toBe('Sentinel')
   })
 })

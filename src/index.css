@@ -387,13 +387,54 @@ button {
   animation: rise-in 0.2s;
 }
 
-.objective {
+.hud-top-right {
   position: absolute;
   top: 22px;
   right: 22px;
   width: min(320px, 40vw);
+  display: grid;
+  justify-items: end;
+  gap: 12px;
+}
+
+.minimap {
+  display: block;
+  border-radius: 50%;
+  box-shadow: 0 2px 14px rgb(0 0 0 / 55%);
+}
+
+.minimap-north {
+  fill: var(--gold-bright);
+  font-family: var(--font-display);
+  font-size: 11px;
+  paint-order: stroke;
+  stroke: #000;
+  stroke-width: 2px;
+}
+
+.objective {
+  width: 100%;
+  display: grid;
+  gap: 10px;
   text-align: right;
   text-shadow: 0 1px 6px #000;
+}
+
+.objective-entry.tracked h3::before {
+  content: '◆ ';
+  font-size: 0.8em;
+}
+
+.objective-more {
+  font-size: 0.8rem;
+  opacity: 0.75;
+}
+
+@media (max-width: 640px) {
+  .minimap {
+    width: 120px;
+    height: 120px;
+  }
 }
 
 .objective h3 {
@@ -774,6 +815,102 @@ button {
   display: grid;
   grid-template-columns: 220px 1fr;
   gap: 20px;
+}
+
+.map-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 16px;
+  align-items: start;
+}
+
+.map-canvas {
+  display: block;
+  background: #0d1020;
+  border-radius: 8px;
+  border: 1px solid var(--stone-700, #30364a);
+}
+
+.map-missions {
+  max-height: 440px;
+  overflow-y: auto;
+}
+
+.map-missions h3 {
+  margin: 0 0 8px;
+  font-family: var(--font-display);
+  font-weight: normal;
+  color: var(--gold-bright);
+}
+
+.mission-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 6px;
+  border-radius: 50%;
+  vertical-align: middle;
+}
+
+.mission-dot.active {
+  background: #ffcf5a;
+}
+
+.mission-dot.available {
+  background: #8fb0ff;
+}
+
+.mission-tracked {
+  font-size: 0.75rem;
+  color: var(--gold);
+}
+
+.map-note {
+  font-size: 0.8rem;
+}
+
+.map-label {
+  fill: var(--gold-bright);
+  font-size: 9px;
+  paint-order: stroke;
+  stroke: #000;
+  stroke-width: 2.5px;
+  pointer-events: none;
+}
+
+.map-pulse {
+  transform-origin: center;
+  transform-box: fill-box;
+  animation: map-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes map-pulse {
+  0%,
+  100% {
+    opacity: 0.9;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.3;
+    transform: scale(1.35);
+  }
+}
+
+@media (max-width: 720px) {
+  .map-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .map-missions {
+    max-height: 220px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .map-pulse {
+    animation: none;
+  }
 }
 
 .list-item {

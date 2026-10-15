@@ -4,8 +4,9 @@ import { useGame } from '../../game/state/gameStore'
 import { useProgression } from '../../game/state/progressionStore'
 import { useSettings } from '../../game/state/settings'
 import { SPELLS, findSpell } from '../../game/spells/registry'
-import { activeQuests, currentObjective, objectiveTarget, questStatus } from '../../game/quests/questEngine'
-import { compassObjective } from '../../game/quests/questMap'
+import { questStatus } from '../../game/quests/questEngine'
+import { compassObjective, questEntries } from '../../game/quests/questMap'
+import { Minimap } from './Minimap'
 import { keyLabel } from '../../game/input/bindings'
 import { runtime } from '../../game/core/runtime'
 import { wrapAngle } from '../../game/core/math'
@@ -27,7 +28,8 @@ function Compass() {
     { label: 'W', bearing: -Math.PI / 2, cls: 'cardinal' },
     { label: 'Castle', bearing: bearingTo(0, -26), cls: '' },
   ]
-  const obj = compassObjective(progression)
+  const tracked = useHud((s) => s.trackedQuest)
+  const obj = compassObjective(progression, tracked)
   if (obj) marks.push({ label: `◆ ${obj.label}`, bearing: bearingTo(obj.at[0], obj.at[1]), cls: 'target' })
   if (hasLens) {
     for (const s of SECRETS) if (!progression.secretsFound.includes(s.id)) marks.push({ label: '✦', bearing: bearingTo(s.position[0], s.position[2]), cls: 'secret' })
@@ -49,11 +51,23 @@ function Compass() {
   )
 }
 
+/** Up to this many active missions are listed under the minimap. */
+const TRACKER_LIMIT = 3
+
 function ObjectiveTracker() {
   const progression = useProgression((s) => s.progression)
-  const q = activeQuests(progression)[0]
-  if (!q) {
-    const next = questStatus(progression, 'first-spark') === 'available' ? 'Find Magister Vale at the Practice Grounds, east of the courtyard.' : null
+  const tracked = useHud((s) => s.trackedQuest)
+  const entries = questEntries(progression)
+  const active = entries.filter((e) => e.status === 'active')
+  // The quest picked on the map goes first.
+  active.sort((a, b) => Number(b.id === tracked) - Number(a.id === tracked))
+  if (!active.length) {
+    const next =
+      questStatus(progression, 'first-spark') === 'available'
+        ? 'Find Magister Vale at the Practice Grounds, east of the courtyard.'
+        : entries.length
+          ? `${entries[0].title}: ${entries[0].objective}`
+          : null
     if (!next) return null
     return (
       <div className="objective">
@@ -62,16 +76,18 @@ function ObjectiveTracker() {
       </div>
     )
   }
-  const o = currentObjective(progression, q.id)
-  const qp = progression.quests[q.id]
-  const target = o ? objectiveTarget(o) : 1
   return (
     <div className="objective" aria-live="polite">
-      <h3>{q.title}</h3>
-      <p>
-        {o?.text}
-        {target > 1 && ` (${qp?.count ?? 0}/${target})`}
-      </p>
+      {active.slice(0, TRACKER_LIMIT).map((e) => (
+        <div key={e.id} className={`objective-entry${e.id === tracked ? ' tracked' : ''}`}>
+          <h3>{e.title}</h3>
+          <p>
+            {e.objective}
+            {e.progress && ` (${e.progress})`}
+          </p>
+        </div>
+      ))}
+      {active.length > TRACKER_LIMIT && <p className="objective-more">+{active.length - TRACKER_LIMIT} more in the journal ({keyLabel(useSettings.getState().controls.bindings.journal[0])})</p>}
     </div>
   )
 }
@@ -235,7 +251,10 @@ export function HUD() {
       <div className="vignette-damage" style={{ opacity: health < 40 ? (40 - health) / 40 : 0 }} />
       <Compass />
       {area && <div className="area-name">{area}</div>}
-      <ObjectiveTracker />
+      <div className="hud-top-right">
+        <Minimap />
+        <ObjectiveTracker />
+      </div>
       <ControlsHint />
       <Toasts />
       <Vitals />

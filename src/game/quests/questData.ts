@@ -10,6 +10,8 @@ export type ObjectiveDef =
   | { id: string; kind: 'defeat'; targetKind: string; count: number; text: string }
   /** Satisfied by how many runes/secrets the player has found in total, including before accepting. */
   | { id: string; kind: 'tally'; source: 'runes' | 'secrets'; count: number; text: string }
+  /** Satisfied once a specific hidden place (layout SECRETS id) has been discovered, even before accepting. */
+  | { id: string; kind: 'discover'; secretId: string; text: string }
 
 export interface QuestReward {
   xp: number
@@ -129,6 +131,46 @@ export const QUESTS: QuestDef[] = [
     ],
     reward: { xp: 300, artifacts: ['gale-feather'], message: 'Awarded the Gale Feather: +15 maximum mana.' },
   },
+  {
+    id: 'drowned-chapel',
+    title: 'The Drowned Chapel',
+    giver: 'groundskeeper',
+    summary: 'Groundskeeper Hollis Thorne has seen lights in the old chapel on the cliffs above Mirrormere and wants someone younger to take a look.',
+    requires: ['first-spark'],
+    objectives: [
+      { id: 'talk-groundskeeper', kind: 'talk', npcId: 'groundskeeper', text: 'Speak to Groundskeeper Thorne by the Pilgrim Bridge' },
+      { id: 'find-chapel', kind: 'discover', secretId: 'mirrormere-ruin', text: 'Find the Drowned Chapel on the cliffs west of the castle' },
+      { id: 'return-groundskeeper', kind: 'talk', npcId: 'groundskeeper', text: 'Tell Groundskeeper Thorne what you saw' },
+    ],
+    reward: { xp: 200, artifacts: ['chapel-bell'], message: 'Received the Chapel Bell: +10 maximum mana, +2 mana/s.' },
+  },
+  {
+    id: 'glimmerwood-embers',
+    title: 'Embers of the Glimmerwood',
+    giver: 'groundskeeper',
+    summary: 'The chapel lights were shrine-fire carried west. Thorne wants a living ember from the Glimmerwood shrine to prove it.',
+    requires: ['drowned-chapel'],
+    objectives: [
+      { id: 'talk-groundskeeper', kind: 'talk', npcId: 'groundskeeper', text: 'Speak to Groundskeeper Thorne by the Pilgrim Bridge' },
+      { id: 'take-ember', kind: 'collect', itemId: 'shrine-ember', text: 'Take an ember from the shrine deep in the Glimmerwood' },
+      { id: 'return-groundskeeper', kind: 'talk', npcId: 'groundskeeper', text: 'Bring the ember to Groundskeeper Thorne' },
+    ],
+    reward: { xp: 250, artifacts: ['ember-heart'], message: 'Received the Ember Heart: +25 maximum mana.' },
+  },
+  {
+    id: 'beacons-of-eldoria',
+    title: 'Beacons of Eldoria',
+    giver: 'groundskeeper',
+    summary: 'With the ember, Thorne can relight the old beacon on the Astronomer’s Perch. Someone has to fly it up there.',
+    requires: ['glimmerwood-embers', 'flight-initiation'],
+    objectives: [
+      { id: 'talk-groundskeeper', kind: 'talk', npcId: 'groundskeeper', text: 'Speak to Groundskeeper Thorne by the Pilgrim Bridge' },
+      { id: 'reach-perch', kind: 'discover', secretId: 'astronomy-summit', text: 'Fly to the Astronomer’s Perch above the tallest tower' },
+      { id: 'land-platform', kind: 'reach', locationId: 'flight-platform', text: 'Land back on the Skyward Platform' },
+      { id: 'return-groundskeeper', kind: 'talk', npcId: 'groundskeeper', text: 'Report to Groundskeeper Thorne' },
+    ],
+    reward: { xp: 300, artifacts: ['beacon-lantern'], message: 'Received the Beacon Lantern: +4 mana/s.' },
+  },
 ]
 
 export const getQuest = (id: string) => QUESTS.find((q) => q.id === id)
@@ -157,6 +199,9 @@ export const ARTIFACTS: ArtifactDef[] = [
   { id: 'runeglass-charm', name: 'Runeglass Charm', description: 'A sliver of glass that drinks in rune-light and gives it back.', bonus: { regen: 5 } },
   { id: 'starlit-mantle', name: 'Starlit Mantle', description: 'A short cape embroidered with the constellations of the Astral Codex.', bonus: { maxMana: 20, regen: 3 } },
   { id: 'gale-feather', name: 'Gale Feather', description: 'A storm-grey feather that never stops trembling.', bonus: { maxMana: 15 } },
+  { id: 'chapel-bell', name: 'Chapel Bell', description: 'A green-bronze hand bell from the Drowned Chapel. It rings without being shaken.', bonus: { maxMana: 10, regen: 2 } },
+  { id: 'ember-heart', name: 'Ember Heart', description: 'Shrine-fire set in a cage of silver wire. It is warm to hold and never burns.', bonus: { maxMana: 25 } },
+  { id: 'beacon-lantern', name: 'Beacon Lantern', description: 'A small lantern lit from the relit beacon on the Astronomer’s Perch.', bonus: { regen: 4 } },
 ]
 
 export const getArtifact = (id: string) => ARTIFACTS.find((a) => a.id === id)

@@ -43,6 +43,8 @@ interface HudStore {
   ringsTotal: number
   notifications: Notification[]
   lastFizzle: { text: string; at: number } | null
+  /** Quest the player chose to follow on the map; the compass and minimap point at it. */
+  trackedQuest: string | null
 
   patch: (p: Partial<Omit<HudStore, 'patch' | 'notify' | 'dismiss' | 'setPrompt' | 'fizzle'>>) => void
   setPrompt: (p: InteractionPrompt | null) => void
@@ -69,6 +71,7 @@ export const useHud = create<HudStore>((set) => ({
   playerX: 0,
   playerZ: 0,
   playerFacing: 0,
+  trackedQuest: null,
   areaName: '',
   prompt: null,
   ringsCollected: 0,
