@@ -174,6 +174,15 @@ export const BROOM_PICKUPS: BroomPickupDef[] = [
 /** Shared position of the Astral Codex collectable (used by WorldItems and the quest map). */
 export const CODEX_POSITION: Vec3Tuple = [-43.3, LIBRARY_BALCONY_Y + 1.05, -40.2]
 
+/** Ground position of the warding sentinel at the far end of the practice yard. */
+export const SENTINEL_POSITION: Vec3Tuple = [77, 0, 41]
+
+/** Spectral runes revealed by a nearby Luminous Orb. A y of 0 means "on the terrain". */
+export const RUNES: Array<{ id: string; position: Vec3Tuple; rotationY: number }> = [
+  { id: 'rune-library', position: [-44.9, LIBRARY_BALCONY_Y + 2.2, -39.2], rotationY: Math.PI / 2 },
+  { id: 'rune-shrine', position: [215, 0, -95], rotationY: 0 },
+]
+
 /** Floating rings for the flight course (order matters for the challenge display only). */
 export const FLIGHT_RINGS: Vec3Tuple[] = [
   [-62, 14, -4],

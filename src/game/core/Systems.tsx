@@ -10,7 +10,7 @@ import { useProgression } from '../state/progressionStore'
 import { findInteractable } from '../interaction/interactables'
 import { AREAS, FLIGHT_PLATFORM, FLIGHT_RINGS, SECRETS, WILDS, areaAt, type AreaId } from '../world/layout'
 import { terrainHeight } from '../world/terrain/heightfield'
-import { questStatus } from '../quests/questEngine'
+import { ringCourseInUse } from '../quests/questEngine'
 
 /** Advances the game clock only while gameplay is simulated (paused menus freeze time). */
 export function GameClock() {
@@ -131,7 +131,7 @@ export function ProgressTriggers() {
       events.emit({ type: 'location:reached', locationId: 'flight-platform' })
       const after = useProgression.getState()
       // Restart the ring challenge once the course is complete and the quest no longer needs it.
-      if (after.progression.ringsCollected.length === FLIGHT_RINGS.length && questStatus(after.progression, 'flight-initiation') !== 'active') {
+      if (after.progression.ringsCollected.length === FLIGHT_RINGS.length && !ringCourseInUse(after.progression)) {
         after.resetRings()
         useHud.getState().notify({ kind: 'info', title: 'Ring course reset', body: 'The rings glow again. Fly the course once more!' })
       }

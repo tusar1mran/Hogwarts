@@ -1,7 +1,7 @@
-import { CODEX_POSITION, FLIGHT_PLATFORM, FLIGHT_RINGS, TRAINING_YARD } from '../world/layout'
+import { CODEX_POSITION, FLIGHT_PLATFORM, FLIGHT_RINGS, RUNES, SENTINEL_POSITION, TRAINING_YARD } from '../world/layout'
 import { NPCS } from '../npc/NPCs'
 import { QUESTS, type ObjectiveDef } from './questData'
-import { activeQuests, currentObjective, questStatus, type Progression } from './questEngine'
+import { activeQuests, currentObjective, questStatus, questUnlocked, type Progression } from './questEngine'
 
 export type MarkerStatus = 'active' | 'available'
 
@@ -41,6 +41,14 @@ export function objectiveLocation(o: ObjectiveDef, p: Progression, forCompass: b
     }
     case 'reach':
       return [FLIGHT_PLATFORM.center[0], FLIGHT_PLATFORM.center[1]]
+    case 'defeat':
+      return [SENTINEL_POSITION[0], SENTINEL_POSITION[2]]
+    case 'tally': {
+      // Secrets stay hidden (the Cartographer's Lens marks them); runes point to the next one.
+      if (o.source === 'secrets') return null
+      const rune = RUNES.find((r) => !p.runesRevealed.includes(r.id))
+      return rune ? [rune.position[0], rune.position[2]] : null
+    }
   }
 }
 
@@ -59,6 +67,10 @@ function objectiveLabel(o: ObjectiveDef): string {
       return 'Ring'
     case 'reach':
       return 'Platform'
+    case 'defeat':
+      return 'Sentinel'
+    case 'tally':
+      return o.source === 'runes' ? 'Rune' : 'Secrets'
   }
 }
 
@@ -72,6 +84,7 @@ export function questMarkers(p: Progression): QuestMarker[] {
     const status = questStatus(p, q.id)
     if (status === 'completed') continue
     if (status === 'available') {
+      if (!questUnlocked(p, q.id)) continue
       const at = npcXZ(q.giver)
       if (at) out.push({ id: q.id, label: q.title, at, status: 'available' })
       continue

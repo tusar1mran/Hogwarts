@@ -1,7 +1,7 @@
 import { SPELL_IDS, STARTING_SPELLS } from '../spells/registry'
 import { ARTIFACTS, QUESTS } from './questData'
 import { createProgression, type Checkpoint, type Progression, type QuestProgress } from './questEngine'
-import { SECRETS, FLIGHT_RINGS, BROOM_PICKUPS } from '../world/layout'
+import { SECRETS, FLIGHT_RINGS, BROOM_PICKUPS, RUNES } from '../world/layout'
 
 /**
  * Versioned local save format.
@@ -30,7 +30,7 @@ const strings = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is
 
 const ARTIFACT_IDS = new Set(ARTIFACTS.map((a) => a.id))
 const SECRET_IDS = new Set(SECRETS.map((s) => s.id))
-const RUNE_IDS = new Set(['rune-library', 'rune-shrine'])
+const RUNE_IDS = new Set(RUNES.map((r) => r.id))
 const BROOM_PICKUP_IDS = new Set(BROOM_PICKUPS.map((b) => b.id))
 
 /**

@@ -28,7 +28,8 @@ describe('questMarkers', () => {
   it('places an available quest at its giver NPC', () => {
     const p = createProgression()
     const markers = questMarkers(p)
-    for (const q of QUESTS) {
+    // Quests with prerequisites are covered in followUpQuests.test.ts.
+    for (const q of QUESTS.filter((quest) => !quest.requires)) {
       const m = markers.find((mk) => mk.id === q.id)
       expect(m).toBeDefined()
       expect(m!.status).toBe('available')

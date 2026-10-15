@@ -110,6 +110,7 @@ export const useProgression = create<ProgressionStore>((set, get) => {
       const p = get().progression
       if (p.secretsFound.includes(id)) return false
       set({ progression: { ...p, secretsFound: [...p.secretsFound, id], xp: p.xp + 50 } })
+      get().dispatch({ type: 'secret', secretId: id })
       get().save()
       return true
     },
@@ -117,6 +118,7 @@ export const useProgression = create<ProgressionStore>((set, get) => {
       const p = get().progression
       if (p.runesRevealed.includes(id)) return false
       set({ progression: { ...p, runesRevealed: [...p.runesRevealed, id], xp: p.xp + 40 } })
+      get().dispatch({ type: 'rune', runeId: id })
       get().save()
       return true
     },

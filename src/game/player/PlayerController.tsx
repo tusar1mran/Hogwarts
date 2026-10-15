@@ -15,7 +15,7 @@ import { terrainHeight } from '../world/terrain/heightfield'
 import { terrainCollider } from '../world/terrain/Terrain'
 import { createFlightMachine, isAirborneFlightState, stepFlightMachine, type FlightMachine } from '../flight/flightMachine'
 import { createFlightBody, DEFAULT_FLIGHT_PARAMS, stepFlight, type FlightBody } from '../flight/flightPhysics'
-import { resolveAnimState } from './animationMachine'
+import { ANIM_TIMINGS, resolveAnimState } from './animationMachine'
 import { respawnAtSafePosition } from './playerActions'
 
 /** Capsule: total height 1.8 m, feet at the body origin minus CAPSULE_CENTER. */
@@ -296,7 +296,7 @@ export function PlayerController() {
       _next.z += m.z
 
       // Facing: towards the camera when aiming/casting, otherwise towards movement.
-      const casting = now - p.castStartedAt < 0.4
+      const casting = now - p.castStartedAt < ANIM_TIMINGS.cast
       if (p.aiming || casting) p.facing = dampAngle(p.facing, camYaw, 18, dt)
       else if (moving) p.facing = dampAngle(p.facing, Math.atan2(-_wish.x, -_wish.z), 11, dt)
       runtime.flight.speed = 0

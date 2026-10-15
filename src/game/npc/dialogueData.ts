@@ -1,5 +1,5 @@
 import type { Progression } from '../quests/questEngine'
-import { awaitsTalk, currentObjective, questStatus } from '../quests/questEngine'
+import { awaitsTalk, canAcceptQuest, currentObjective, questStatus } from '../quests/questEngine'
 
 export type DialogueAction =
   | { type: 'acceptQuest'; questId: string }
@@ -32,13 +32,24 @@ export interface NpcDialogue {
 
 const objectiveCount = (p: Progression, questId: string) => p.quests[questId]?.count ?? 0
 
+/**
+ * Entry node for a follow-up quest: turn-in, progress or offer, or null when the quest has
+ * nothing to say (completed, or its prerequisites are not yet done).
+ */
+function followUpEntry(p: Progression, questId: string, npcId: string, prefix: string): string | null {
+  if (awaitsTalk(p, questId, npcId)) return `${prefix}Turnin`
+  if (questStatus(p, questId) === 'active') return `${prefix}Progress`
+  if (canAcceptQuest(p, questId)) return `${prefix}Intro`
+  return null
+}
+
 export const DIALOGUES: Record<string, NpcDialogue> = {
   mentor: {
     npcId: 'mentor',
     name: 'Magister Orrin Vale',
     title: 'Master of Practical Arcana',
     entry: (p) => {
-      if (questStatus(p, 'first-spark') === 'completed') return 'after'
+      if (questStatus(p, 'first-spark') === 'completed') return followUpEntry(p, 'warden-of-the-yard', 'mentor', 'warden') ?? 'after'
       if (awaitsTalk(p, 'first-spark', 'mentor')) return 'turnin'
       if (questStatus(p, 'first-spark') === 'active') return 'progress'
       return 'intro'
@@ -81,8 +92,33 @@ export const DIALOGUES: Record<string, NpcDialogue> = {
         text: 'Keeper Marrow in the library could use sharp eyes, and Captain Halloway on the Skyward Platform is always short of fliers. Try a Luminous Orb near anything that looks like it is hiding something.',
         next: null,
       },
+      wardenIntro: {
+        text: 'Targets do not fight back. The warding sentinel at the far end of the yard does. Subdue it and I will know you can keep your head when the air fills with fire.',
+        choices: [
+          { text: 'How do I beat it?', next: 'wardenExplain' },
+          { text: 'Accept: Warden of the Yard', next: 'wardenAccepted', action: { type: 'acceptQuest', questId: 'warden-of-the-yard' } },
+          { text: 'Another time.', next: null },
+        ],
+      },
+      wardenExplain: {
+        text: 'Five clean Arc Bolts will put it to sleep. Its orbs follow you, so raise your Aegis Shield when they come, or scatter them with a Force Wave. Swish, flick, and keep moving.',
+        choices: [
+          { text: 'Accept: Warden of the Yard', next: 'wardenAccepted', action: { type: 'acceptQuest', questId: 'warden-of-the-yard' } },
+          { text: 'Not yet.', next: null },
+        ],
+      },
+      wardenAccepted: { text: 'The sentinel is by the east wall. Come back when its eye goes dark.', next: null },
+      wardenProgress: {
+        text: 'The sentinel still stands. Five Arc Bolts, shield up when it fires.',
+        next: null,
+      },
+      wardenTurnin: {
+        text: 'Not a scorch mark on you. Take this Warden’s Sigil; it deepens the well your spells draw from.',
+        onEnter: { type: 'turnIn' },
+        next: null,
+      },
       after: {
-        text: 'Practise as often as you like. The warding sentinel at the far end of the yard fights back, so raise your Aegis Shield before you poke it.',
+        text: 'Practise as often as you like. The sentinel wakes again after a short rest, if you want the exercise.',
         next: null,
       },
     },
@@ -92,15 +128,37 @@ export const DIALOGUES: Record<string, NpcDialogue> = {
     npcId: 'student',
     name: 'Tamsin Reed',
     title: 'Second-year Student',
-    entry: () => 'hello',
+    entry: (p) => {
+      if (awaitsTalk(p, 'lights-in-the-dark', 'student')) return 'runesTurnin'
+      if (questStatus(p, 'lights-in-the-dark') === 'active') return 'runesProgress'
+      return 'hello'
+    },
     nodes: {
       hello: {
         text: 'Oh! Sorry, I nearly hit you. I am practising for the term trials. Have you tried Force Wave on the crates? It is very satisfying.',
         choices: [
           { text: 'Any advice for a newcomer?', next: 'advice' },
           { text: 'Heard any rumours?', next: 'rumours' },
+          { text: 'You look like you want to ask me something.', next: 'runesIntro', visible: (p) => canAcceptQuest(p, 'lights-in-the-dark') },
           { text: 'Good luck with the trials.', next: null },
         ],
+      },
+      runesIntro: {
+        text: 'You can cast Luminous Orb now, right? My cousin says there are runes hidden around the grounds that only glow when an orb floats near them. One in the library gallery, one at the Glimmerwood shrine. Nobody believes her.',
+        choices: [
+          { text: 'Accept: Lights in the Dark', next: 'runesAccepted', action: { type: 'acceptQuest', questId: 'lights-in-the-dark' } },
+          { text: 'Sounds like a story.', next: null },
+        ],
+      },
+      runesAccepted: { text: 'Cast the orb close to where they should be, then wait for the light to catch them. Tell me everything!', next: null },
+      runesProgress: {
+        text: (p) => `${p.runesRevealed.length} of 2 runes so far? Try the library’s upper gallery and the shrine deep in the Glimmerwood.`,
+        next: null,
+      },
+      runesTurnin: {
+        text: 'Both of them? I knew it! Here, take my Runeglass Charm. It soaks up rune-light, and your mana comes back quicker with it on.',
+        onEnter: { type: 'turnIn' },
+        next: null,
       },
       advice: {
         text: 'Mana comes back on its own if you stop casting for a moment. And the sentinel only shoots at you if you get close, so use your shield first.',
@@ -118,7 +176,7 @@ export const DIALOGUES: Record<string, NpcDialogue> = {
     name: 'Keeper Isolde Marrow',
     title: 'Keeper of the Starlit Library',
     entry: (p) => {
-      if (questStatus(p, 'lost-archive') === 'completed') return 'after'
+      if (questStatus(p, 'lost-archive') === 'completed') return followUpEntry(p, 'secrets-of-eldoria', 'librarian', 'secrets') ?? 'after'
       if (awaitsTalk(p, 'lost-archive', 'librarian')) return 'turnin'
       if (questStatus(p, 'lost-archive') === 'active') return 'progress'
       return 'intro'
@@ -148,6 +206,23 @@ export const DIALOGUES: Record<string, NpcDialogue> = {
         onEnter: { type: 'turnIn' },
         next: null,
       },
+      secretsIntro: {
+        text: 'I am writing a new guide to the grounds, and the old maps are full of blank corners. Visit three of the places they forgot and tell me what you saw.',
+        choices: [
+          { text: 'Accept: Secrets of Eldoria', next: 'secretsAccepted', action: { type: 'acceptQuest', questId: 'secrets-of-eldoria' } },
+          { text: 'Perhaps later.', next: null },
+        ],
+      },
+      secretsAccepted: { text: 'The Cartographer’s Lens will hum when you are close. The highest tower, the lake cliffs and the glowing forest are good places to start.', next: null },
+      secretsProgress: {
+        text: (p) => `${p.secretsFound.length} of 3 so far. Listen for the Lens; it rarely lies.`,
+        next: null,
+      },
+      secretsTurnin: {
+        text: 'Marvellous notes. Take the Starlit Mantle; the embroidery is from the Codex itself, and it steadies a caster’s reserves.',
+        onEnter: { type: 'turnIn' },
+        next: null,
+      },
       after: {
         text: 'The Codex is back where it belongs. If the Lens starts humming, follow it. Eldoria keeps more secrets than I keep books.',
         next: null,
@@ -160,7 +235,11 @@ export const DIALOGUES: Record<string, NpcDialogue> = {
     name: 'Captain Bryn Halloway',
     title: 'Flight Instructor',
     entry: (p) => {
-      if (questStatus(p, 'flight-initiation') === 'completed') return 'after'
+      if (questStatus(p, 'flight-initiation') === 'completed') {
+        if (questStatus(p, 'skyward-gauntlet') === 'active') return 'gauntletProgress'
+        if (canAcceptQuest(p, 'skyward-gauntlet')) return 'gauntletIntro'
+        return 'after'
+      }
       if (questStatus(p, 'flight-initiation') === 'active') return 'progress'
       return 'intro'
     },
@@ -188,6 +267,22 @@ export const DIALOGUES: Record<string, NpcDialogue> = {
           if (o?.kind === 'rings') return `${objectiveCount(p, 'flight-initiation')} of 5 rings. They glow gold; you will not miss them.`
           if (o?.kind === 'reach') return 'Nicely done. Now land on the platform. F to land when you are over it.'
           return 'Off you go.'
+        },
+        next: null,
+      },
+      gauntletIntro: {
+        text: 'Five rings was the licence. The real course has eight, and the fliers worth their pin clear the lot in one run. Fancy it?',
+        choices: [
+          { text: 'Accept: The Skyward Gauntlet', next: 'gauntletAccepted', action: { type: 'acceptQuest', questId: 'skyward-gauntlet' } },
+          { text: 'My arms are still shaking.', next: null },
+        ],
+      },
+      gauntletAccepted: { text: 'Course is reset. All eight rings, then put it down on this platform.', next: null },
+      gauntletProgress: {
+        text: (p) => {
+          const o = currentObjective(p, 'skyward-gauntlet')
+          if (o?.kind === 'rings') return `${objectiveCount(p, 'skyward-gauntlet')} of 8. Hold Shift on the straights.`
+          return 'That is the whole course. Bring it down on the platform.'
         },
         next: null,
       },

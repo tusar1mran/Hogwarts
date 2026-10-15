@@ -1,4 +1,5 @@
 import type { AnimState, FlightState } from '../core/types'
+import { CAST_GESTURE_DURATION } from './wandGesture'
 
 /** Inputs sampled from the controller each frame. Times are game-clock seconds. */
 export interface AnimInputs {
@@ -23,7 +24,8 @@ export interface AnimInputs {
 }
 
 export const ANIM_TIMINGS = {
-  cast: 0.42,
+  /** Covers the whole arm throw so it is never cut off mid-gesture. */
+  cast: CAST_GESTURE_DURATION,
   hit: 0.45,
   landSoft: 0.18,
   landHard: 0.42,

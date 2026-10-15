@@ -24,6 +24,8 @@ export const runtime = {
     aiming: false,
     /** Time the current cast animation started (-1 when not casting). */
     castStartedAt: -1,
+    /** Colour of the wand-tip trail for the current cast. */
+    castColor: '#9fd8ff',
     hitAt: -1,
     landedAt: -1,
     landImpact: 0,

@@ -10,7 +10,9 @@ import { useHud } from '../state/hudStore'
 import { useProgression } from '../state/progressionStore'
 import { getMaterials } from '../world/environment/materials'
 import { allEntities, entityById, entityForCollider, type GameEntity } from '../entities/registry'
-import { applyCast, canCast, createCaster, refundCast, regenerate, type CasterState } from './spellSystem'
+import { applyCast, canCast, createCaster, refundCast, regenerate, withBonuses, type CasterState } from './spellSystem'
+import { artifactBonuses } from '../quests/questData'
+import { CAST_GESTURE_DURATION, gestureActive } from '../player/wandGesture'
 import { SPELLS, findSpell, getSpell, type SpellContext, type SpellDef } from './registry'
 import { GlowSpritePool, ParticlePool, RingPool } from './effects'
 import { CAPSULE_CENTER, CAPSULE_HALF, CAPSULE_RADIUS } from '../player/PlayerController'
@@ -22,8 +24,7 @@ import { timeUniform } from '../world/environment/Atmosphere'
 export const spellState = {
   caster: createCaster() as CasterState,
   selected: 'arc-bolt',
-  orbs: Array.from({ length: 2 }, () => ({ active: false, position: new Vector3(), born: 0, duration: 1 })),
-}
+  orbs: Array.from({ length: 2 }, () => ({ active: false, position: new Vector3(), born: 0, duration: 1 })),}
 
 /** Positions of up to three live projectiles, for spatial hum voices. */
 export const projectileAudio = { count: 0, positions: [new Vector3(), new Vector3(), new Vector3()] }
@@ -48,6 +49,10 @@ export function resetSpellState() {
 
 const MAX_PROJECTILES = 24
 const TRAIL = 10
+const WAND_TRAIL = 16
+
+/** Recent wand-tip positions while a gesture plays, drawn as a fading ribbon of light. */
+const wandTrail = { points: Array.from({ length: WAND_TRAIL }, () => new Vector3()), head: 0, size: 0 }
 const FLIGHT_ALLOWED = new Set(['arc-bolt', 'aegis-shield', 'luminous-orb'])
 
 interface Projectile {
@@ -112,6 +117,7 @@ export function SpellRuntime() {
   const shieldWasUp = useRef(false)
   const syncTimer = useRef(0)
   const orbMeshes = useRef<Mesh[]>([])
+  const bonusCache = useRef<{ artifacts: readonly string[] | null; bonus: { maxMana: number; regen: number } }>({ artifacts: null, bonus: { maxMana: 0, regen: 0 } })
 
   const shieldMaterial = useMemo(
     () =>
@@ -399,12 +405,19 @@ export function SpellRuntime() {
     ctx.aimDirection.copy(runtime.aim.direction)
     ctx.playerPosition.copy(runtime.player.position)
     ctx.playerForward.set(-Math.sin(runtime.camera.yaw), 0, -Math.cos(runtime.camera.yaw))
+    // The spell leaves on the click; the arm throw (wandGesture) plays over it.
     runtime.player.castStartedAt = now
+    runtime.player.castColor = spell.visual.color
+    wandTrail.size = 0
     const ok = spell.execute(ctx, spell)
     if (!ok) {
       spellState.caster = refundCast(spellState.caster, spell)
       return
     }
+    // A bright spark at the wand tip as the spell is thrown.
+    _castColor.set(spell.visual.color)
+    fx.particles.burst(runtime.wandTip, 20, { speed: 3.2, color: _castColor, life: 0.35, size: 0.07, gravity: 1.5, spread: 1.2 })
+    nextFlash(Math.max(2, spell.visual.light * 0.6), 0.14, runtime.wandTip, _castColor)
     events.emit({ type: 'spell:cast', spellId: spell.id })
   }
 
@@ -413,6 +426,11 @@ export function SpellRuntime() {
     const game = useGame.getState()
     const active = isGameplayActive(game)
     const now = runtime.time
+
+    // Artefact bonuses (max mana, regen); recomputed only when the owned set changes.
+    const artifacts = useProgression.getState().progression.artifacts
+    if (artifacts !== bonusCache.current.artifacts) bonusCache.current = { artifacts, bonus: artifactBonuses(artifacts) }
+    spellState.caster = withBonuses(spellState.caster, bonusCache.current.bonus)
 
     if (active && game.phase === 'playing') {
       spellState.caster = regenerate(spellState.caster, now, dt)
@@ -425,6 +443,25 @@ export function SpellRuntime() {
     }
 
     fx.sprites.begin(camera)
+
+    // Wand-tip trail: a ribbon of light that traces the throw.
+    const pl = runtime.player
+    const gestureT = now - pl.castStartedAt
+    if (pl.castStartedAt >= 0 && runtime.flight.state === 'Grounded' && gestureActive(gestureT)) {
+      wandTrail.points[wandTrail.head].copy(runtime.wandTip)
+      wandTrail.head = (wandTrail.head + 1) % WAND_TRAIL
+      wandTrail.size = Math.min(WAND_TRAIL, wandTrail.size + 1)
+      _trailColor.set(pl.castColor)
+      const fade = 1 - gestureT / CAST_GESTURE_DURATION
+      for (let i = 0; i < wandTrail.size; i++) {
+        // Oldest first; newer points are larger and brighter.
+        const idx = (wandTrail.head - wandTrail.size + i + WAND_TRAIL) % WAND_TRAIL
+        const k = (i + 1) / wandTrail.size
+        fx.sprites.add(wandTrail.points[idx], 0.05 + k * 0.12, _trailColor, k * 0.9 * fade)
+      }
+    } else {
+      wandTrail.size = 0
+    }
 
     // Projectiles: swept ray test each frame so fast bolts never tunnel through walls.
     for (const pr of projectiles) {
@@ -620,3 +657,5 @@ export function SpellRuntime() {
 const _white = new Color('#ffffff')
 const _orbColor = new Color('#ffd98a')
 const _tetherColor = new Color('#c79bff')
+const _castColor = new Color()
+const _trailColor = new Color()

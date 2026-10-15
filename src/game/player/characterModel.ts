@@ -66,6 +66,13 @@ export const STUDENT_OUTFIT: Outfit = {
   wand: true,
 }
 
+/**
+ * Which hand holds the wand on the skinned character. The bundled animation library casts
+ * left-handed (Spell_Simple_Shoot and Spell_Simple_Idle_Loop move the left arm; the right arm
+ * barely moves), so the wand goes in the left hand to make the casting hand the wand hand.
+ */
+export const WAND_SIDE: 'l' | 'r' = 'l'
+
 export interface DressedCharacter {
   root: Group
   wandTip: Object3D | null
@@ -393,8 +400,8 @@ export function dressCharacter(source: Object3D, outfit: Outfit, hairStyles: Obj
   const pelvis = boneByName(bones, 'pelvis')
   const spine3 = boneByName(bones, 'spine_03')
   const neck = boneByName(bones, 'neck_01')
-  const hand = boneByName(bones, 'hand_r')
-  const middle = boneByName(bones, 'middle_01_r')
+  const hand = boneByName(bones, `hand_${WAND_SIDE}`)
+  const middle = boneByName(bones, `middle_01_${WAND_SIDE}`)
 
   if (pelvis) {
     const w = slice(b, 1.0)
@@ -453,7 +460,7 @@ export function dressCharacter(source: Object3D, outfit: Outfit, hairStyles: Obj
   let wandTip: Object3D | null = null
   if (outfit.wand && hand) {
     const handPos = new Vector3().setFromMatrixPosition(hand.matrixWorld)
-    const dir = middle ? new Vector3().setFromMatrixPosition(middle.matrixWorld).sub(handPos).normalize() : new Vector3(1, 0, 0)
+    const dir = middle ? new Vector3().setFromMatrixPosition(middle.matrixWorld).sub(handPos).normalize() : new Vector3(WAND_SIDE === 'r' ? 1 : -1, 0, 0)
     // Point the wand out of the fist, angled slightly forward of the fingers.
     dir.addScaledVector(new Vector3(0, 0, frontSign), 0.35).normalize()
     const q = new Quaternion().setFromUnitVectors(new Vector3(0, 1, 0), dir)

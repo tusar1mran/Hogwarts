@@ -1,17 +1,26 @@
-import { Component, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { Component, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { Group, Quaternion, Vector3 } from 'three'
 import { runtime } from '../core/runtime'
 import { clamp, damp, dampFactor } from '../core/math'
 import type { AnimState } from '../core/types'
 import { HumanoidRig, PoseBlender, type HumanoidHandle, type RigAppearance } from './HumanoidRig'
-import { resolveClip } from './animationMachine'
+import { ANIM_TIMINGS, resolveClip } from './animationMachine'
 import { CLIP_MAP } from '../assets/manifest'
 import { CharacterAvatar, characterLibraryAvailable, type AvatarController } from './CharacterAvatar'
 import { STUDENT_OUTFIT } from './characterModel'
 import { FLIGHT_TIMINGS, isAirborneFlightState, isBroomVisible } from '../flight/flightMachine'
 import { clampWorldAimPitch, wandAimRotation } from './wandAim'
 import { BroomModel } from '../world/BroomModel'
+import { applyGesture, poseWandArm, wandGesturePose, type GesturePose } from './wandGesture'
+
+/** Current wand gesture pose, or null when the player is not casting on the ground. */
+function currentGesture(): GesturePose | null {
+  const p = runtime.player
+  if (p.castStartedAt < 0 || runtime.flight.state !== 'Grounded') return null
+  const pose = wandGesturePose(runtime.time - p.castStartedAt)
+  return pose.weight > 0 ? pose : null
+}
 
 export const PLAYER_APPEARANCE: RigAppearance = {
   robe: '#1d2238',
@@ -82,7 +91,7 @@ function ProceduralAvatar() {
   const root = useRef<Group>(null)
   const rig = useRef<HumanoidHandle>(null)
   const blender = useMemo(() => new PoseBlender(), [])
-  const anim = useRef({ phase: 0, lastState: 'idle' as AnimState, since: 0, t: 0, flightRoll: 0, flightPitch: 0, aimK: 0 })
+  const anim = useRef({ phase: 0, lastState: 'idle' as AnimState, since: 0, t: 0, flightRoll: 0, flightPitch: 0, aimK: 0, wandRest: null as Quaternion | null })
 
   useFrame((_, rawDt) => {
     const g = root.current
@@ -100,7 +109,7 @@ function ProceduralAvatar() {
     const stride = p.sprinting ? 2.1 : 1.5
     a.phase += (p.speed / stride) * Math.PI * dt
 
-    const oneShotDuration = p.animState === 'land' ? (p.landImpact > 9 ? 0.42 : 0.2) : p.animState === 'hit' ? 0.45 : p.animState === 'cast' ? 0.42 : 0.6
+    const oneShotDuration = p.animState === 'land' ? (p.landImpact > 9 ? 0.42 : 0.2) : p.animState === 'hit' ? 0.45 : p.animState === 'cast' ? ANIM_TIMINGS.cast : 0.6
     const oneShot = clamp((a.t - a.since) / oneShotDuration, 0, 1)
     blender.update(p.animState, dt, ONE_SHOT.includes(p.animState) ? 18 : 10)
     blender.apply(
@@ -120,9 +129,22 @@ function ProceduralAvatar() {
     // Point the wand along the aim direction while aiming or during the cast flick, but only
     // on the ground so it never fights the broom riding pose. Done after blender.apply (which
     // sets the hand/wand group's base rotation) and before sampling the tip below.
-    const casting = p.castStartedAt >= 0 && runtime.time - p.castStartedAt < 0.4
+    const casting = p.castStartedAt >= 0 && runtime.time - p.castStartedAt < ANIM_TIMINGS.cast
     const wantAim = (p.aiming || casting) && !flightPose && !isAirborneFlightState(runtime.flight.state)
     a.aimK = a.aimK + ((wantAim ? 1 : 0) - a.aimK) * dampFactor(12, dt)
+    // Throw: the arm thrusts out along
+    // the aim; the wand group follows below (aim + wrist flick).
+    const gesture = currentGesture()
+    if (gesture) {
+      const arm = { upper: r.joints.upperArmR, fore: r.joints.forearmR, hand: r.joints.handR, tip: null }
+      poseWandArm(arm, gesture, p.facing, clampWorldAimPitch(runtime.aim.direction), { fore: 0.45, hand: 0 })
+    }
+    // The pose blender does not drive the wand group, so restore its rest rotation each frame
+    // before layering aim and gesture on top; otherwise the corrections would accumulate.
+    if (r.wandRoot) {
+      a.wandRest ??= r.wandRoot.quaternion.clone()
+      r.wandRoot.quaternion.copy(a.wandRest)
+    }
     if (a.aimK > 0.001 && r.wandRoot && r.wandRoot.parent) {
       const worldAim = clampWorldAimPitch(runtime.aim.direction)
       // Bring the clamped world aim into the wand group's parent space, then build the rotation.
@@ -131,6 +153,7 @@ function ProceduralAvatar() {
       _aimRot.copy(wandAimRotation(_localAim))
       r.wandRoot.quaternion.slerp(_aimRot, a.aimK)
     }
+    if (gesture && r.wandRoot) applyGesture(r.wandRoot, gesture, p.facing, 0.8)
 
     if (r.wandTip) {
       r.wandTip.getWorldPosition(_tip)
@@ -204,17 +227,28 @@ function RealisticAvatar() {
     a.seatOffset = damp(a.seatOffset, target, 8, dt)
     s.position.y = a.seatOffset
 
-    // No wand-aim correction here: it applies only when a settable wand group is exposed, and
-    // the procedural path (characterLibraryAvailable() is false) carries the feature.
+  })
+
+  // Runs after the mixer has posed the skeleton, so the wand gesture layers over the cast clip
+  // and the tip position (projectile origin) includes it.
+  const afterAnimate = useCallback(() => {
+    const c = ctrl.current
+    const p = runtime.player
+    if (!c) return
+    const gesture = currentGesture()
+    if (gesture) {
+      const arm = { upper: c.wandUpperArm, fore: c.wandForearm, hand: c.wandHand, tip: c.wandTip }
+      poseWandArm(arm, gesture, p.facing, clampWorldAimPitch(runtime.aim.direction))
+    }
     if (c.wandTip) c.wandTip.getWorldPosition(runtime.wandTip)
     else runtime.wandTip.set(p.position.x, p.position.y + 1.4, p.position.z)
-  })
+  }, [])
 
   return (
     <group ref={outer}>
       <group ref={seat}>
         <group rotation-y={Math.PI}>
-          <CharacterAvatar ref={ctrl} body="male" hair={['parted']} outfit={STUDENT_OUTFIT} />
+          <CharacterAvatar ref={ctrl} body="male" hair={['parted']} outfit={STUDENT_OUTFIT} onAfterAnimate={afterAnimate} />
         </group>
       </group>
     </group>

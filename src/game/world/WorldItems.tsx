@@ -15,7 +15,7 @@ import { questStatus } from '../quests/questEngine'
 import { damagePlayer } from '../player/playerActions'
 import { spellState } from '../spells/SpellRuntime'
 import { terrainHeight } from './terrain/heightfield'
-import { BROOM_PICKUPS, CODEX_POSITION, FLIGHT_PLATFORM, LIBRARY_BALCONY_Y } from './layout'
+import { BROOM_PICKUPS, CODEX_POSITION, FLIGHT_PLATFORM, RUNES, SENTINEL_POSITION } from './layout'
 import { BroomModel } from './BroomModel'
 import { timeUniform } from './environment/Atmosphere'
 
@@ -193,7 +193,7 @@ function Crate({ id, position, size }: { id: string; position: V3; size: number 
 /* Warding sentinel: fires slow orbs at the player; Aegis Shield blocks them                    */
 /* ------------------------------------------------------------------------------------------ */
 
-const SENTINEL_POS = new Vector3(77, 0, 41)
+const SENTINEL_POS = new Vector3(...SENTINEL_POSITION)
 const ENGAGE_RANGE = 15
 const _toPlayer = new Vector3()
 const _homing = new Vector3()
@@ -251,6 +251,7 @@ function Sentinel() {
             if (s.hp <= 0) {
               s.disabledUntil = runtime.time + 25
               s.hp = 5
+              useProgression.getState().dispatch({ type: 'defeat', targetKind: 'sentinel' })
               useHud.getState().notify({ kind: 'info', title: 'Sentinel subdued', body: 'It will reawaken shortly.' })
             }
           },
@@ -387,11 +388,6 @@ function Codex() {
     </group>
   )
 }
-
-const RUNES: Array<{ id: string; position: V3; rotationY: number }> = [
-  { id: 'rune-library', position: [-44.9, LIBRARY_BALCONY_Y + 2.2, -39.2], rotationY: Math.PI / 2 },
-  { id: 'rune-shrine', position: [215, 0, -95], rotationY: 0 },
-]
 
 /** Spectral rune: invisible until a Luminous Orb floats close enough. */
 function Rune({ id, position, rotationY }: { id: string; position: V3; rotationY: number }) {

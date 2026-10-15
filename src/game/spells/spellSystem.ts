@@ -24,14 +24,30 @@ export interface CasterState {
 
 export type CastCheck = { ok: true } | { ok: false; reason: 'locked' | 'cooldown' | 'mana' }
 
-export const createCaster = (maxMana = 100): CasterState => ({
+export const BASE_MAX_MANA = 100
+export const BASE_REGEN = 14
+
+export const createCaster = (maxMana = BASE_MAX_MANA): CasterState => ({
   mana: maxMana,
   maxMana,
-  regen: 14,
+  regen: BASE_REGEN,
   regenDelay: 0.8,
   lastCastAt: -Infinity,
   readyAt: {},
 })
+
+/**
+ * Apply permanent bonuses (from artefacts) on top of the base pool. Raising the maximum also
+ * tops up current mana by the same amount; lowering it clamps. Returns the same object when
+ * nothing changes.
+ */
+export function withBonuses(state: CasterState, bonus: { maxMana: number; regen: number }): CasterState {
+  const maxMana = BASE_MAX_MANA + bonus.maxMana
+  const regen = BASE_REGEN + bonus.regen
+  if (maxMana === state.maxMana && regen === state.regen) return state
+  const mana = Math.min(maxMana, state.mana + Math.max(0, maxMana - state.maxMana))
+  return { ...state, maxMana, regen, mana }
+}
 
 export function cooldownRemaining(state: CasterState, spellId: string, now: number): number {
   const ready = state.readyAt[spellId] ?? -Infinity

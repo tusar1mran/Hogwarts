@@ -4,9 +4,20 @@ import { useProgression } from '../../game/state/progressionStore'
 import { useHud } from '../../game/state/hudStore'
 import { SPELLS } from '../../game/spells/registry'
 import { selectSpell } from '../../game/spells/SpellRuntime'
-import { ARTIFACTS, QUESTS, XP_PER_LEVEL, levelForXp } from '../../game/quests/questData'
-import { objectiveTarget, questStatus } from '../../game/quests/questEngine'
-import { SECRETS } from '../../game/world/layout'
+import { ARTIFACTS, QUESTS, XP_PER_LEVEL, describeBonus, getArtifact, getQuest, levelForXp, type QuestDef } from '../../game/quests/questData'
+import { objectiveTarget, questStatus, questUnlocked } from '../../game/quests/questEngine'
+import { RUNES, SECRETS } from '../../game/world/layout'
+
+/** "Warden's Sigil (+30 max mana)" style list of the artefacts a quest awards. */
+function rewardArtifacts(q: QuestDef): string {
+  return (q.reward.artifacts ?? [])
+    .map((id) => {
+      const a = getArtifact(id)
+      const bonus = describeBonus(a?.bonus)
+      return `${a?.name ?? id}${bonus ? ` (${bonus})` : ''}`
+    })
+    .join(', ')
+}
 import { returnToMenu, resumeGame } from '../../game/session'
 import { events } from '../../game/core/events'
 import { SettingsPanel } from './SettingsPanel'
@@ -148,7 +159,7 @@ export function QuestJournal() {
             return (
               <button key={q.id} type="button" className="list-item" aria-current={q.id === current} onClick={() => setCurrent(q.id)}>
                 {q.title}
-                <small>{st === 'available' ? 'Not started' : st === 'active' ? 'In progress' : 'Completed'}</small>
+                <small>{st === 'available' ? (questUnlocked(progression, q.id) ? 'Not started' : 'Locked') : st === 'active' ? 'In progress' : 'Completed'}</small>
               </button>
             )
           })}
@@ -156,7 +167,9 @@ export function QuestJournal() {
         <div>
           <h3 style={{ margin: '4px 0', fontFamily: 'var(--font-display)', fontWeight: 'normal', color: 'var(--gold-bright)' }}>{quest.title}</h3>
           <p>{quest.summary}</p>
-          {status === 'available' ? (
+          {status === 'available' && !questUnlocked(progression, quest.id) ? (
+            <p className="muted">Complete {(quest.requires ?? []).map((id) => getQuest(id)?.title ?? id).join(' and ')} first.</p>
+          ) : status === 'available' ? (
             <p className="muted">Find {quest.objectives[0].kind === 'talk' ? quest.objectives[0].text.replace(/^Speak to /, '') : 'the quest giver'} to begin.</p>
           ) : (
             <ul className="objective-list">
@@ -175,7 +188,7 @@ export function QuestJournal() {
           )}
           <hr className="rule" />
           <p className="muted" style={{ fontSize: '0.86rem' }}>
-            Reward: {quest.reward.xp} XP. {status === 'completed' ? quest.reward.message : ''}
+            Reward: {quest.reward.xp} XP{rewardArtifacts(quest) ? `, ${rewardArtifacts(quest)}` : ''}. {status === 'completed' ? quest.reward.message : ''}
           </p>
         </div>
       </div>
@@ -199,6 +212,7 @@ export function Inventory() {
             <div key={a.id} className={`card${owned ? '' : ' locked'}`}>
               <h4>{owned ? a.name : 'Undiscovered'}</h4>
               <p style={{ fontSize: '0.86rem', margin: 0 }}>{owned ? a.description : 'Keep exploring.'}</p>
+              {owned && a.bonus && <p style={{ fontSize: '0.82rem', margin: '4px 0 0', color: 'var(--gold-bright)' }}>{describeBonus(a.bonus)}</p>}
             </div>
           )
         })}
@@ -218,7 +232,7 @@ export function Inventory() {
         })}
       </ul>
       <p className="muted" style={{ fontSize: '0.84rem' }}>
-        Spectral runes revealed: {progression.runesRevealed.length} / 2. Rings this course: {progression.ringsCollected.length}.
+        Spectral runes revealed: {progression.runesRevealed.length} / {RUNES.length}. Rings this course: {progression.ringsCollected.length}.
       </p>
     </div>
   )

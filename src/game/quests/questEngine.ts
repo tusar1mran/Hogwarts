@@ -43,6 +43,10 @@ export type QuestEvent =
   | { type: 'flightState'; state: FlightState }
   | { type: 'ring'; ringIndex: number }
   | { type: 'reach'; locationId: string }
+  | { type: 'defeat'; targetKind: string }
+  /** Runes and secrets are tallied from Progression; these events just prompt a re-check. */
+  | { type: 'rune'; runeId: string }
+  | { type: 'secret'; secretId: string }
 
 export interface QuestUpdate {
   progression: Progression
@@ -65,9 +69,11 @@ export const createProgression = (): Progression => ({
 })
 
 export function objectiveTarget(o: ObjectiveDef): number {
-  if (o.kind === 'spellHit' || o.kind === 'rings') return o.count
+  if (o.kind === 'spellHit' || o.kind === 'rings' || o.kind === 'defeat' || o.kind === 'tally') return o.count
   return 1
 }
+
+const tallyCount = (p: Progression, source: 'runes' | 'secrets') => (source === 'runes' ? p.runesRevealed.length : p.secretsFound.length)
 
 function matches(o: ObjectiveDef, e: QuestEvent): boolean {
   switch (o.kind) {
@@ -83,7 +89,43 @@ function matches(o: ObjectiveDef, e: QuestEvent): boolean {
       return e.type === 'ring'
     case 'reach':
       return e.type === 'reach' && e.locationId === o.locationId
+    case 'defeat':
+      return e.type === 'defeat' && e.targetKind === o.targetKind
+    case 'tally':
+      // Progress comes from syncTallies, never from individual events.
+      return false
   }
+}
+
+/**
+ * Bring every active "tally" objective in line with the runes/secrets already found. Finds made
+ * before the quest was accepted count, so a quest can never be left unwinnable.
+ */
+function syncTallies(p: Progression): QuestUpdate {
+  let progression = p
+  const advanced: QuestUpdate['advanced'] = []
+  const completed: QuestDef[] = []
+  for (const [questId, qp] of Object.entries(p.quests)) {
+    if (qp.status !== 'active') continue
+    const def = getQuest(questId)
+    const objective = def?.objectives[qp.stage]
+    if (!def || objective?.kind !== 'tally') continue
+    const have = tallyCount(p, objective.source)
+    let next: QuestProgress
+    if (have >= objective.count) {
+      const stage = qp.stage + 1
+      const done = stage >= def.objectives.length
+      next = { status: done ? 'completed' : 'active', stage, count: 0 }
+      advanced.push({ questId, objective })
+      if (done) completed.push(def)
+    } else if (have !== qp.count) {
+      next = { ...qp, count: have }
+    } else {
+      continue
+    }
+    progression = { ...progression, quests: { ...progression.quests, [questId]: next } }
+  }
+  return { progression, advanced, completed }
 }
 
 function grantReward(p: Progression, q: QuestDef): Progression {
@@ -121,20 +163,35 @@ export function applyQuestEvent(p: Progression, e: QuestEvent): QuestUpdate {
     progression = { ...progression, quests: { ...progression.quests, [questId]: next } }
   }
 
+  const tallies = syncTallies(progression)
+  progression = tallies.progression
+  advanced.push(...tallies.advanced)
+  completed.push(...tallies.completed)
+
   for (const q of completed) progression = grantReward(progression, q)
   return { progression, advanced, completed }
 }
 
+/** True when every prerequisite quest has been completed. */
+export function questUnlocked(p: Progression, questId: string): boolean {
+  const def = getQuest(questId)
+  return !!def && (def.requires ?? []).every((id) => p.quests[id]?.status === 'completed')
+}
+
+/** True when the quest can be offered right now: not yet accepted and its prerequisites are done. */
+export const canAcceptQuest = (p: Progression, questId: string) => !p.quests[questId] && questUnlocked(p, questId)
+
 /** Accept a quest from its giver; the opening "speak to" objective is satisfied immediately. */
 export function startQuest(p: Progression, questId: string): QuestUpdate {
   const def = getQuest(questId)
-  if (!def || p.quests[questId]) return { progression: p, advanced: [], completed: [] }
+  if (!def || !canAcceptQuest(p, questId)) return { progression: p, advanced: [], completed: [] }
   const started: Progression = { ...p, quests: { ...p.quests, [questId]: { status: 'active', stage: 0, count: 0 } } }
-  // Ring course restarts for the flight quest so earlier laps do not count.
-  const reset = questId === 'flight-initiation' ? { ...started, ringsCollected: [] } : started
+  // Ring course restarts for ring quests so earlier laps do not count.
+  const reset = def.resetsRings ? { ...started, ringsCollected: [] } : started
   const first = def.objectives[0]
   if (first?.kind === 'talk' && first.npcId === def.giver) {
     // Only advance this quest, not other quests that might also wait on talking to the giver.
+    // applyQuestEvent also syncs tallies, so runes/secrets found earlier count straight away.
     const only = applyQuestEvent({ ...reset, quests: { [questId]: reset.quests[questId] } }, { type: 'talk', npcId: def.giver })
     return {
       progression: { ...only.progression, quests: { ...reset.quests, ...only.progression.quests } },
@@ -144,6 +201,10 @@ export function startQuest(p: Progression, questId: string): QuestUpdate {
   }
   return { progression: reset, advanced: [], completed: [] }
 }
+
+/** True when some active quest is using the ring course, so it must not be reset under the player. */
+export const ringCourseInUse = (p: Progression) =>
+  QUESTS.some((q) => q.resetsRings && p.quests[q.id]?.status === 'active')
 
 export type QuestAvailability = 'available' | 'active' | 'completed'
 

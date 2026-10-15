@@ -3,7 +3,7 @@ import { useFrame } from '@react-three/fiber'
 import { useGLTF } from '@react-three/drei'
 import { AnimationMixer, LoopOnce, LoopRepeat, type AnimationAction, type AnimationClip, type Object3D } from 'three'
 import { CHARACTER_ASSETS, type BodyType, type HairStyle } from '../assets/manifest'
-import { dressCharacter, retargetClips, type Outfit } from './characterModel'
+import { dressCharacter, retargetClips, WAND_SIDE, type Outfit } from './characterModel'
 import { probeAsset } from '../assets/probe'
 
 /**
@@ -27,6 +27,10 @@ export interface AvatarController {
   root: Object3D
   wandTip: Object3D | null
   pelvis: Object3D | null
+  /** Bones of the arm holding the wand (see WAND_SIDE), for procedural layers over the clip. */
+  wandUpperArm: Object3D | null
+  wandForearm: Object3D | null
+  wandHand: Object3D | null
   /** Cross-fade to a clip. Returns the action, or null when the clip does not exist. */
   play: (clip: string, opts?: { once?: boolean; fade?: number }) => AnimationAction | null
   current: () => AnimationAction | null
@@ -38,9 +42,15 @@ export interface CharacterAvatarProps {
   hair: HairStyle[]
   outfit: Outfit
   initialClip?: string
+  /** Runs every frame right after the animation mixer has posed the skeleton. */
+  onAfterAnimate?: (dt: number) => void
 }
 
-export const CharacterAvatar = forwardRef<AvatarController, CharacterAvatarProps>(function CharacterAvatar({ body, hair, outfit, initialClip = 'Idle_Loop' }, ref) {
+export const CharacterAvatar = forwardRef<AvatarController, CharacterAvatarProps>(function CharacterAvatar({ body, hair, outfit, initialClip = 'Idle_Loop', onAfterAnimate }, ref) {
+  const afterAnimate = useRef(onAfterAnimate)
+  useEffect(() => {
+    afterAnimate.current = onAfterAnimate
+  }, [onAfterAnimate])
   const bodyGltf = useGLTF(CHARACTER_ASSETS.bodies[body], NO_DRACO)
   const anims = useGLTF(CHARACTER_ASSETS.animations, NO_DRACO)
   // Load every hairstyle so the hook order never changes, then pick the requested ones.
@@ -94,6 +104,9 @@ export const CharacterAvatar = forwardRef<AvatarController, CharacterAvatarProps
       root: dressed.root,
       wandTip: dressed.wandTip,
       pelvis: dressed.root.getObjectByName('pelvis') ?? null,
+      wandUpperArm: dressed.root.getObjectByName(`upperarm_${WAND_SIDE}`) ?? null,
+      wandForearm: dressed.root.getObjectByName(`lowerarm_${WAND_SIDE}`) ?? null,
+      wandHand: dressed.root.getObjectByName(`hand_${WAND_SIDE}`) ?? null,
       play,
       current: () => current.current,
       has: (name) => actions.has(name),
@@ -110,7 +123,10 @@ export const CharacterAvatar = forwardRef<AvatarController, CharacterAvatarProps
 
   useImperativeHandle(ref, () => controller, [controller])
 
-  useFrame((_, dt) => mixer.update(Math.min(dt, 0.1)))
+  useFrame((_, dt) => {
+    mixer.update(Math.min(dt, 0.1))
+    afterAnimate.current?.(dt)
+  })
 
   return <primitive object={dressed.root} />
 })
