@@ -166,6 +166,7 @@ export function PlayerController() {
       s.flight,
       {
         toggle: active && s.flightToggle && !p.controlsLocked,
+        hasBroom: useProgression.getState().progression.hasBroom,
         grounded: p.grounded,
         nearGround: heightAboveGround < 1.3 && fb.speed < 7 && descending,
         overWater,

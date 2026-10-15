@@ -159,6 +159,21 @@ export const SECRETS: SecretDef[] = [
   { id: 'mirrormere-ruin', name: 'Drowned Chapel', position: [-128, 0, -10], radius: 8, hint: 'On the cliffs above the lake.' },
 ]
 
+/** In-world broom pickups. The courtyard broom is the early, reachable soft-lock guard. */
+export interface BroomPickupDef {
+  id: string
+  name: string
+  position: Vec3Tuple
+}
+
+export const BROOM_PICKUPS: BroomPickupDef[] = [
+  { id: 'broom-courtyard', name: 'Training Broom', position: [18, 0, 36] },
+  { id: 'broom-platform', name: 'Swiftwood Broom', position: [-56, FLIGHT_PLATFORM.height, 24] },
+]
+
+/** Shared position of the Astral Codex collectable (used by WorldItems and the quest map). */
+export const CODEX_POSITION: Vec3Tuple = [-43.3, LIBRARY_BALCONY_Y + 1.05, -40.2]
+
 /** Floating rings for the flight course (order matters for the challenge display only). */
 export const FLIGHT_RINGS: Vec3Tuple[] = [
   [-62, 14, -4],

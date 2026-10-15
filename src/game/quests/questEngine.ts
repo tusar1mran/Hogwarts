@@ -27,6 +27,10 @@ export interface Progression {
   runesRevealed: string[]
   /** Ring indices collected in the current course run. */
   ringsCollected: number[]
+  /** True once the player has picked up a broom and may summon it for flight. */
+  hasBroom: boolean
+  /** Ids of brooms the player has collected. */
+  broomsCollected: string[]
   checkpoint: Checkpoint | null
   playTimeSeconds: number
 }
@@ -54,6 +58,8 @@ export const createProgression = (): Progression => ({
   secretsFound: [],
   runesRevealed: [],
   ringsCollected: [],
+  hasBroom: false,
+  broomsCollected: [],
   checkpoint: null,
   playTimeSeconds: 0,
 })

@@ -1,0 +1,33 @@
+{
+  "id": "FEAT-002",
+  "type": "feat",
+  "description": "Broom acquisition gate and its persisted state. Add hasBroom + broomsCollected to Progression, a collectBroom store action, a broom:collected event, gate the flight machine's Grounded->Summoning transition on hasBroom, thread hasBroom through PlayerController, and bump the versioned save 2->3 with safe v1/v2/v3 migration. This is the state foundation FEAT-003 consumes (collectBroom, broomsCollected styling, the gate). Must land before FEAT-003. Grounded in design.md §6 and §8 and design-review.md focus questions 2 and 4.",
+  "status": "completed",
+  "steps": [
+    "In src/game/quests/questEngine.ts add hasBroom: boolean and broomsCollected: string[] to the Progression interface and default them (false, []) in createProgression().",
+    "In src/game/core/events.ts add { type: 'broom:collected'; broomId: string } to the GameEvent union (broomId follows the <noun>Id convention).",
+    "In src/game/state/progressionStore.ts add collectBroom(id: string) to ProgressionStore, modelled on addArtifact: no-op if progression.broomsCollected.includes(id); else set { hasBroom: true, broomsCollected: [...prev, id] }, notify via useHud (kind 'reward', message resolves the live summon key: keyLabel(useSettings.getState().controls.bindings.toggleBroom[0])), emit events.emit({ type:'broom:collected', broomId:id }), then get().save(). Add imports for keyLabel (from ../input/bindings) and useSettings (from ./settings).",
+    "In src/game/flight/flightMachine.ts add hasBroom: boolean to FlightMachineInput; in the Grounded case, when input.toggle is true, return stay({ blocked: 'You have no broom. Find one on the grounds first.' }) if !input.hasBroom, placed before the existing grounded and overWater checks.",
+    "In src/game/flight/flight.test.ts add hasBroom: true to the idle input constant so existing cases stay green; add a test that Grounded with { toggle:true, grounded:true, overWater:false, hasBroom:false } stays 'Grounded' with a truthy blocked message; add a test that the same with hasBroom:true transitions to 'Summoning'.",
+    "In src/game/player/PlayerController.tsx add hasBroom: useProgression.getState().progression.hasBroom to the inline stepFlightMachine input object (~line 165). The existing if (machine.blocked) useHud.getState().fizzle(machine.blocked) surfaces the message.",
+    "Add a progression-store test for collectBroom (extend src/game/quests/quests.test.ts or add src/game/state/progressionStore.test.ts): fresh progression has hasBroom===false and broomsCollected deep-equals []; collectBroom('broom-courtyard') sets hasBroom true and appends the id; a second call with the same id is a no-op; a broom:collected event is emitted.",
+    "In src/game/quests/saveSystem.ts bump SAVE_VERSION to 3; rename SaveFileV2 to SaveFileV3 with version: 3; in sanitizeProgression (after the createProgression() spread) add hasBroom: typeof raw.hasBroom === 'boolean' ? raw.hasBroom : false and broomsCollected: strings(raw.broomsCollected).filter(id => BROOM_PICKUP_IDS.has(id)) with BROOM_PICKUP_IDS = new Set(BROOM_PICKUPS.map(b => b.id)) imported from ../world/layout (BROOM_PICKUPS is added by FEAT-003 step 1; land that step first, or temporarily define the id set locally and switch to the import once layout lands); in parseSave accept version===1 (migrate), version===2 || version===SAVE_VERSION (sanitize; migratedFrom = raw.version===SAVE_VERSION ? undefined : 2), and reject anything else (including version>3) as 'unsupported'; serializeSave writes version 3.",
+    "Create src/game/quests/saveSystem.test.ts asserting: a v1 save string still migrates ok; a v2 save string (no hasBroom) loads ok with hasBroom===false, broomsCollected deep-equals [], and hasValidSave() stays true (regression); a v3 save string round-trips both new fields; a { version: 4 } string returns { ok:false, reason:'unsupported' }; sanitizeProgression defaults missing hasBroom/broomsCollected and preserves set values."
+  ],
+  "acceptance_criteria": [
+    "npx vitest run src/game/flight/flight.test.ts passes, including the two new gate cases and all pre-existing transition/physics cases.",
+    "npx vitest run src/game/quests/saveSystem.test.ts passes (v1 migrate, v2 defaults + hasValidSave true, v3 round-trip, v4 unsupported).",
+    "The collectBroom store test passes: fresh hasBroom===false and broomsCollected===[]; collect sets+appends; second same-id call is a no-op; broom:collected emitted.",
+    "npm run typecheck and npm run build pass.",
+    "Code-path trace (F2.1/F2.2): PlayerController passes hasBroom into stepFlightMachine; with no broom the Grounded case returns blocked and fizzle shows the toast via SpellBar."
+  ],
+  "verification": [
+    "npx vitest run src/game/flight/flight.test.ts",
+    "npx vitest run src/game/quests/saveSystem.test.ts",
+    "npx vitest run src/game/quests/quests.test.ts  (or the new progressionStore.test.ts)",
+    "npm run typecheck",
+    "npm run build"
+  ],
+  "blocked_reason": null,
+  "findings": "ADDED FEAT-003's layout.ts additions early (FEAT-003 step 1): BroomPickupDef interface, BROOM_PICKUPS (broom-courtyard 'Training Broom' at [18,0,36]; broom-platform 'Swiftwood Broom' at [-56, FLIGHT_PLATFORM.height, 24]), and CODEX_POSITION = [-43.3, LIBRARY_BALCONY_Y + 1.05, -40.2]. FEAT-003's coder MUST NOT re-add these to layout.ts; step 1 is already done. saveSystem.ts imports BROOM_PICKUPS from ../world/layout and derives BROOM_PICKUP_IDS from it (no local id set). collectBroom notify uses kind 'reward' with title 'Broom acquired' and body resolving the live toggleBroom key via keyLabel(useSettings...). Added src/game/state/progressionStore.test.ts (collectBroom) and src/game/quests/saveSystem.test.ts (v1/v2/v3/v4). parseSave: v1 migrate (migratedFrom 1), v2 sanitize (migratedFrom 2), v3 sanitize (migratedFrom undefined), version>3 => unsupported. Verification: flight.test.ts, saveSystem.test.ts, progressionStore.test.ts, quests.test.ts, npm run typecheck, npm run build, npm run lint, and full npm test (97 tests, 9 files) all pass. Lint emits only pre-existing warnings, none from these changes."
+}

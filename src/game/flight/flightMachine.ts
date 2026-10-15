@@ -18,6 +18,8 @@ export interface FlightMachine {
 export interface FlightMachineInput {
   /** F pressed this frame. */
   toggle: boolean
+  /** The player has picked up a broom and may summon it. */
+  hasBroom: boolean
   /** Character controller reports ground contact. */
   grounded: boolean
   /** Close to the ground while slow and descending: flying should turn into landing. */
@@ -56,6 +58,7 @@ export function stepFlightMachine(m: FlightMachine, input: FlightMachineInput, d
   switch (m.state) {
     case 'Grounded':
       if (input.toggle) {
+        if (!input.hasBroom) return stay({ blocked: 'You have no broom. Find one on the grounds first.' })
         if (!input.grounded) return stay({ blocked: 'You need solid footing to summon the broom.' })
         if (input.overWater) return stay({ blocked: 'You cannot summon the broom here.' })
         return to('Summoning')

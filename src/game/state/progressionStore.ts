@@ -12,6 +12,8 @@ import { readSave, writeSave } from '../quests/saveSystem'
 import { getArtifact, getQuest, levelForXp } from '../quests/questData'
 import { useHud } from './hudStore'
 import { events } from '../core/events'
+import { keyLabel } from '../input/bindings'
+import { useSettings } from './settings'
 
 const questTitle = (id: string) => getQuest(id)?.title ?? id
 
@@ -26,6 +28,7 @@ interface ProgressionStore {
   dispatch: (e: QuestEvent) => void
   acceptQuest: (questId: string) => void
   addArtifact: (id: string) => void
+  collectBroom: (id: string) => void
   markSecret: (id: string) => boolean
   markRune: (id: string) => boolean
   collectRing: (index: number) => boolean
@@ -92,6 +95,15 @@ export const useProgression = create<ProgressionStore>((set, get) => {
       const a = getArtifact(id)
       useHud.getState().notify({ kind: 'reward', title: `Found: ${a?.name ?? id}`, body: a?.description })
       get().dispatch({ type: 'collect', itemId: id })
+      get().save()
+    },
+    collectBroom: (id) => {
+      const p = get().progression
+      if (p.broomsCollected.includes(id)) return
+      set({ progression: { ...p, hasBroom: true, broomsCollected: [...p.broomsCollected, id] } })
+      const summonKey = keyLabel(useSettings.getState().controls.bindings.toggleBroom[0])
+      useHud.getState().notify({ kind: 'reward', title: 'Broom acquired', body: `Press ${summonKey} to summon your broom.` })
+      events.emit({ type: 'broom:collected', broomId: id })
       get().save()
     },
     markSecret: (id) => {

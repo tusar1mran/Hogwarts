@@ -1,18 +1,19 @@
 import { SPELL_IDS, STARTING_SPELLS } from '../spells/registry'
 import { ARTIFACTS, QUESTS } from './questData'
 import { createProgression, type Checkpoint, type Progression, type QuestProgress } from './questEngine'
-import { SECRETS, FLIGHT_RINGS } from '../world/layout'
+import { SECRETS, FLIGHT_RINGS, BROOM_PICKUPS } from '../world/layout'
 
 /**
  * Versioned local save format.
  *   v1 (pre-release prototype): { version: 1, xp, completed: string[], spells: string[] }
- *   v2 (current):               { version: 2, savedAt, progression }
+ *   v2:                         { version: 2, savedAt, progression }
+ *   v3 (current):               v2 shape with Progression.hasBroom + broomsCollected
  */
-export const SAVE_VERSION = 2
+export const SAVE_VERSION = 3
 export const SAVE_KEY = 'eldoria.save'
 
-export interface SaveFileV2 {
-  version: 2
+export interface SaveFileV3 {
+  version: 3
   savedAt: string
   progression: Progression
 }
@@ -30,6 +31,7 @@ const strings = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is
 const ARTIFACT_IDS = new Set(ARTIFACTS.map((a) => a.id))
 const SECRET_IDS = new Set(SECRETS.map((s) => s.id))
 const RUNE_IDS = new Set(['rune-library', 'rune-shrine'])
+const BROOM_PICKUP_IDS = new Set(BROOM_PICKUPS.map((b) => b.id))
 
 /**
  * Validate an untrusted progression object. Unknown ids are dropped and out-of-range values
@@ -85,6 +87,8 @@ export function sanitizeProgression(raw: unknown, warnings: string[] = []): Prog
     ),
     checkpoint,
     playTimeSeconds: finite(raw.playTimeSeconds, 0, 0, 1e9),
+    hasBroom: typeof raw.hasBroom === 'boolean' ? raw.hasBroom : false,
+    broomsCollected: strings(raw.broomsCollected).filter((id) => BROOM_PICKUP_IDS.has(id)),
   }
 }
 
@@ -112,15 +116,16 @@ export function parseSave(text: string | null | undefined): LoadResult {
     const progression = sanitizeProgression(migrateV1(raw), warnings)
     return progression ? { ok: true, progression, migratedFrom: 1, warnings } : { ok: false, reason: 'corrupt' }
   }
-  if (raw.version === SAVE_VERSION) {
+  if (raw.version === 2 || raw.version === SAVE_VERSION) {
     const progression = sanitizeProgression(raw.progression, warnings)
-    return progression ? { ok: true, progression, warnings } : { ok: false, reason: 'corrupt', detail: 'Invalid progression' }
+    const migratedFrom = raw.version === SAVE_VERSION ? undefined : 2
+    return progression ? { ok: true, progression, migratedFrom, warnings } : { ok: false, reason: 'corrupt', detail: 'Invalid progression' }
   }
   return { ok: false, reason: 'unsupported', detail: `Save version ${raw.version} is newer than this build supports` }
 }
 
 export function serializeSave(progression: Progression, now = new Date()): string {
-  const file: SaveFileV2 = { version: SAVE_VERSION, savedAt: now.toISOString(), progression }
+  const file: SaveFileV3 = { version: SAVE_VERSION, savedAt: now.toISOString(), progression }
   return JSON.stringify(file)
 }
 

@@ -11,6 +11,7 @@ export type GameEvent =
   | { type: 'target:destroyed'; entityId: string }
   | { type: 'npc:talk'; npcId: string }
   | { type: 'item:collected'; itemId: string }
+  | { type: 'broom:collected'; broomId: string }
   | { type: 'flight:state'; from: string; to: string }
   | { type: 'flight:ring'; ringIndex: number }
   | { type: 'location:reached'; locationId: string }

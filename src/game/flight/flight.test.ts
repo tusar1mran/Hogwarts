@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { FLIGHT_TIMINGS, createFlightMachine, stepFlightMachine, type FlightMachine, type FlightMachineInput } from './flightMachine'
 import { DEFAULT_FLIGHT_PARAMS, createFlightBody, stepFlight, type FlightControls } from './flightPhysics'
 
-const idle: FlightMachineInput = { toggle: false, grounded: true, nearGround: false, overWater: false, interrupted: false }
+const idle: FlightMachineInput = { toggle: false, hasBroom: true, grounded: true, nearGround: false, overWater: false, interrupted: false }
 
 function run(m: FlightMachine, input: Partial<FlightMachineInput>, seconds: number, dt = 1 / 60) {
   let s = m
@@ -25,6 +25,17 @@ describe('flight state machine', () => {
     expect(m.state).toBe('TakingOff')
     m = run(m, { grounded: false }, FLIGHT_TIMINGS.TakingOff + 0.05)
     expect(m.state).toBe('Flying')
+  })
+
+  it('refuses to summon without a broom', () => {
+    const r = stepFlightMachine(createFlightMachine(), { ...idle, toggle: true, grounded: true, overWater: false, hasBroom: false }, 0.016)
+    expect(r.state).toBe('Grounded')
+    expect(r.blocked).toBeTruthy()
+  })
+
+  it('summons once a broom has been collected', () => {
+    const r = stepFlightMachine(createFlightMachine(), { ...idle, toggle: true, grounded: true, overWater: false, hasBroom: true }, 0.016)
+    expect(r.state).toBe('Summoning')
   })
 
   it('refuses to summon while airborne or over water', () => {
